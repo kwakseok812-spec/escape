@@ -33,7 +33,7 @@
     var m = R.int(0, 11), mi = monthInfo(m), a = R.int(3, 9), b = R.int(a + 3, a + 12);
     var T = R.int(3, mi.dim - b);
     var xs = []; for (var d = 1; d < T; d++) xs.push(d);
-    var m2 = (m + R.int(1, 11)) % 12, mi2 = monthInfo(m2), xs2 = []; for (var e = 1; e <= mi2.dim; e++) xs2.push(e);   // 속임: 지난 학기 달력(전부 X)
+    var m2 = m === 0 ? 11 : R.int(0, m - 1), mi2 = monthInfo(m2), xs2 = []; for (var e = 1; e <= mi2.dim; e++) xs2.push(e);   // 속임: 지난 학기 달력(전부 X)
     return { month: m, dim: mi.dim, first: mi.first, xs: xs, pin: T, circle: T + a, square: T + b, code: pad2(a) + pad2(b),
       old: { month: m2, dim: mi2.dim, first: mi2.first, xs: xs2, circle: R.int(2, mi2.dim - 2), square: R.int(2, mi2.dim - 2) } };
   }
@@ -81,17 +81,28 @@
     return { ids: ids, ans: ans, cons: cons, table: table, star: star, decoy: q };
   }
 
-  /* ---------- 3. 방향: 뒤섞인 책의 권수 순서대로 화살표 ---------- */
-  var DIRS = ['U', 'D', 'L', 'R'];
+  /* ---------- 3. 방향: 책 6권 중 화이트보드 규칙의 띠 색 책만, 권수 순서대로 화살표 읽기 ---------- */
+  var DIRS = ['U', 'D', 'L', 'R'], BANDS = ['blue', 'orange'];
   function genDirection(R) {
-    var vols = R.shuffle([1, 2, 3, 4]), arrows, tries = 0;
-    do { arrows = [R.pick(DIRS), R.pick(DIRS), R.pick(DIRS), R.pick(DIRS)]; tries++; } while (tries < 50 && (new Set(arrows).size < 3));
-    var books = vols.map(function (v, i) { return { vol: v, arrow: arrows[i] }; });
-    return { books: books, ans: solveDirection({ books: books }) };
+    var vols = R.shuffle([1, 2, 3, 4, 5, 6]), accept = R.pick(BANDS), other = accept === 'blue' ? 'orange' : 'blue', bandIdx = R.shuffle([0, 1, 2, 3, 4, 5]), books = [], arrows, tries = 0;
+    do { arrows = []; for (var i = 0; i < 6; i++) arrows.push(R.pick(DIRS)); tries++; } while (tries < 80 && new Set(arrows).size < 3);
+    var d;
+    for (var t2 = 0; t2 < 200; t2++) {
+      if (t2 > 0) { vols = R.shuffle([1, 2, 3, 4, 5, 6]); arrows = []; for (var i2 = 0; i2 < 6; i2++) arrows.push(R.pick(DIRS)); if (new Set(arrows).size < 3) continue; }
+      books = []; for (var k = 0; k < 6; k++) books.push({ vol: vols[k], arrow: arrows[k], band: bandIdx.indexOf(k) < 4 ? accept : other });
+      d = { books: books, accept: accept }; d.ans = solveDirection(d);
+      var naive1 = books.filter(function (b) { return b.vol <= 4; }).sort(function (x, y) { return x.vol - y.vol; }).map(function (b) { return b.arrow; }),     // 띠 색을 무시하고 1~4권을 읽음
+          naive2 = books.filter(function (b) { return b.band === accept; }).map(function (b) { return b.arrow; });                                         // 번호를 무시하고 책장 순서대로 읽음
+      if (d.ans.join() !== naive1.join() && d.ans.join() !== naive2.join()) break;
+      bandIdx = R.shuffle([0, 1, 2, 3, 4, 5]);
+    }
+    return d;
   }
   function solveDirection(d) {
-    var vs = d.books.map(function (b) { return b.vol; }).slice().sort(); for (var i = 0; i < vs.length; i++) if (vs[i] !== i + 1) return null;
-    return d.books.slice().sort(function (a, b) { return a.vol - b.vol; }).map(function (b) { return b.arrow; });
+    var vs = d.books.map(function (b) { return b.vol; }).slice().sort(function (a, b) { return a - b; }); for (var i = 0; i < vs.length; i++) if (vs[i] !== i + 1) return null;
+    var mine = d.books.filter(function (b) { return b.band === d.accept; }).sort(function (a, b) { return a.vol - b.vol; });
+    if (mine.length !== 4) return null;
+    return mine.map(function (b) { return b.arrow; });
   }
 
   /* ---------- 4. 기호: 금고판의 닳은 정도로 세 기호와 순서 ---------- */
@@ -107,17 +118,19 @@
     return idx.map(function (o) { return o.i; });                // 많이 닳은 것부터
   }
 
-  /* ---------- 5. 세기: 혈구계수판 네 모서리 칸의 살아 있는 세포 ---------- */
+  /* ---------- 5. 세기: 혈구계수판 3×3 큰 칸(칸마다 4×4=16 격자) — 네 모서리 큰 칸의 살아 있는 세포만 센다 ---------- */
+  var CORNERS = [0, 2, 6, 8], CELL_R = 9 / 118;                   // 세포 반지름(큰 칸 한 변 118px 기준)
   function genCounting(R) {
-    var squares = [], total = 0;
-    for (var q = 0; q < 4; q++) {
-      var live = R.int(1, 2), dead = R.int(0, 3), cells = R.shuffle(Array.apply(null, Array(25)).map(function (_, k) { return k; })).slice(0, live + dead), objs = [];
-      cells.forEach(function (c, k) { objs.push({ x: ((c % 5) + 0.5 + (R.f() - 0.5) * 0.4) / 5, y: (Math.floor(c / 5) + 0.5 + (R.f() - 0.5) * 0.4) / 5, dead: k >= live }); });
-      squares.push(objs); total += live;
+    var squares = [], total = 0, range = []; for (var i = 0; i < 16; i++) range.push(i);
+    for (var q = 0; q < 9; q++) {
+      var corner = CORNERS.indexOf(q) >= 0, live = corner ? R.int(3, 6) : R.int(1, 4), dead = corner ? R.int(1, 4) : R.int(1, 3);
+      var cells = R.shuffle(range).slice(0, live + dead), objs = [];
+      cells.forEach(function (c, k) { objs.push({ x: ((c % 4) + 0.5 + (R.f() - 0.5) * 0.22) / 4, y: (Math.floor(c / 4) + 0.5 + (R.f() - 0.5) * 0.22) / 4, dead: k >= live }); });   // 한 격자에 하나, 격자 선에서 떨어뜨림
+      squares.push(objs); if (corner) total += live;
     }
     return { squares: squares, total: total };
   }
-  function solveCounting(c) { var t = 0; c.squares.forEach(function (sq) { sq.forEach(function (o) { if (!o.dead) t++; }); }); return t; }
+  function solveCounting(c) { var t = 0; CORNERS.forEach(function (q) { c.squares[q].forEach(function (o) { if (!o.dead) t++; }); }); return t; }
 
   /* ---------- 6. 다이얼: ℃ → ℉ 환산 ---------- */
   function genDial(R) {
@@ -139,15 +152,15 @@
   function buildLab(seed) {
     var R = RNG(seed), cal = genCalendar(R), arr = genArrangement(R), dir = genDirection(R), sym = genSymbols(R), dial = genDial(R);
     var green = arr.table[arr.ans[arr.star]], cnt = genCounting(R);
-    for (var k = 0; k < 60 && cnt.total === green; k++) cnt = genCounting(R);   // 태그 숫자는 서로 달라야 한다(빨강=세기 합계, 초록=균주 번호)
-    var tags = genTags(R, cnt.total, green);
+    for (var k = 0; k < 200 && (cnt.total % 10 === 0 || cnt.total % 10 === green); k++) cnt = genCounting(R);   // 빨강 태그 숫자 = 합계의 끝자리(0 아님, 초록과 다름)
+    var tags = genTags(R, cnt.total % 10, green);
     return { seed: seed, cal: cal, arr: arr, dir: dir, sym: sym, cnt: cnt, dial: dial, tags: tags, code: finalCode(tags),
       dialAns: solveDial(dial), boxCode: String(arr.star + 1) + String(green) };
   }
 
   ESC.parts = { mulberry32: mulberry32, RNG: RNG, pad2: pad2, STRAINS: STRAINS, DIM: DIM, DIRS: DIRS, ENERGY_ORDER: ENERGY_ORDER,
     monthInfo: monthInfo, genCalendar: genCalendar, solveCalendar: solveCalendar, genArrangement: genArrangement, solveArrangement: solveArrangement, satisfies: satisfies, perms: perms,
-    genDirection: genDirection, solveDirection: solveDirection, genSymbols: genSymbols, solveSymbols: solveSymbols, genCounting: genCounting, solveCounting: solveCounting,
+    genDirection: genDirection, solveDirection: solveDirection, BANDS: BANDS, CORNERS: CORNERS, CELL_R: CELL_R, genSymbols: genSymbols, solveSymbols: solveSymbols, genCounting: genCounting, solveCounting: solveCounting,
     genDial: genDial, solveDial: solveDial, genTags: genTags, finalCode: finalCode, buildLab: buildLab };
   if (typeof module !== 'undefined' && module.exports) module.exports = ESC.parts;
 })(typeof window !== 'undefined' ? window : globalThis);

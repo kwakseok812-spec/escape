@@ -51,6 +51,7 @@
   C.enter = function (sceneId) {
     var sc = this.scn.scenes[sceneId]; if (!sc) return;
     if (sc.kind === 'wall') this.st.wall = sceneId;
+    this.touchScene(sceneId);
     if (sc.card && this.st.notebook.indexOf(sc.card.id) < 0) { this.st.notebook.push(sc.card.id); this.push({ t: 'card', id: sc.card.id, scene: sceneId }); }
     if (sc.onEnter) this.eff(sc.onEnter);
   };
@@ -90,7 +91,7 @@
     if (l.type === 'dial') return l.min; if (l.type === 'count') return 0;
   };
   C.getLock = function (id) { if (this.st.lockVal[id] === undefined) this.st.lockVal[id] = this.lockDefault(id); return this.st.lockVal[id]; };
-  C.setLock = function (id, v) { this.st.lockVal[id] = v; };
+  C.setLock = function (id, v) { this.st.lockVal[id] = v; var self = this; Object.keys(this.scn.scenes).forEach(function (k) { if (self.scn.scenes[k].lock && self.scn.scenes[k].lock.id === id) self.touchScene(k); }); };
   C.cooldown = function (id) { var c = this.st.cd[id]; return c && c > this.st.elapsed ? c - this.st.elapsed : 0; };
   /* 여는 동작 한 번 = 시도 1회 */
   C.tryOpen = function (id) {
@@ -105,24 +106,49 @@
   };
   C.lockVisible = function (id) { var sc = this.scn.scenes, k, z; for (k in sc) if (sc[k].lock && sc[k].lock.id === id) { z = sc[k].lock; return this.cond(z.show); } return true; };
 
-  /* ---------------- 힌트 ---------------- */
-  C.currentPuzzle = function () { var self = this; return this.scn.puzzles.filter(function (p) { return !self.cond(p.solved) && self.cond(p.avail); })[0] || null; };
-  C.hintState = function () {
-    var pz = this.currentPuzzle(); if (!pz) return null;
-    var h = this.st.hint[pz.id] || { lvl: 0, at: -1e9 }, wait = h.lvl < 3 ? this.hintWait[h.lvl] : 0, remain = Math.max(0, wait - (this.st.elapsed - h.at));
-    return { pz: pz, lvl: h.lvl, remain: h.lvl >= 3 ? 0 : remain, max: 3 };
+  /* ---------------- 힌트: 지금 보고 있는 장면·최근에 만진 퍼즐 기준 ---------------- */
+  C.availPuzzles = function () { var self = this; return this.scn.puzzles.filter(function (p) { return !self.cond(p.solved) && self.cond(p.avail); }); };
+  /* 장면·잠금을 만지면 그 장면이 속한 퍼즐에 「첫 접촉 시각」을 적고 「최근 만진 퍼즐」로 둔다 */
+  C.touchScene = function (sceneId) {
+    var self = this, st = this.st, hit = []; st.first = st.first || {}; st.recent = st.recent || [];
+    this.scn.puzzles.forEach(function (p) {
+      if (self.cond(p.solved) || !self.cond(p.avail) || !p.scenes || p.scenes.indexOf(sceneId) < 0) return;
+      if (st.first[p.id] === undefined) st.first[p.id] = st.elapsed;
+      hit.push(p.id);
+    });
+    if (hit.length) st.recent = hit.concat(st.recent.filter(function (x) { return hit.indexOf(x) < 0; })).slice(0, 8);   // 목록에서 앞선 퍼즐이 맨 앞
+  };
+  C.currentPuzzle = function (ctx) {
+    var av = this.availPuzzles(); if (!av.length) return null;
+    var scene = ctx && ctx.scene, st = this.st, wall = scene && this.scn.scenes[scene] ? (this.scn.scenes[scene].parent || scene) : null, best = null, bs = -1;
+    av.forEach(function (p, i) {
+      var sc = 0;
+      if (scene && p.scenes && p.scenes.indexOf(scene) >= 0) sc = 30;                         // 지금 보고 있는 장면
+      else if (wall && p.scenes && p.scenes.indexOf(wall) >= 0) sc = 20;                      // 그 벽의 퍼즐
+      var r = (st.recent || []).indexOf(p.id); if (r >= 0) sc += 10 - r;                      // 최근에 만진 퍼즐
+      sc += (av.length - i) * 0.01;                                                           // 같으면 목록 순서
+      if (sc > bs) { bs = sc; best = p; }
+    });
+    return best;
+  };
+  /* 단계 열림 시각: 1단계 즉시, 2단계 첫 접촉 90초 뒤, 3단계 첫 접촉 330초(90+240) 뒤 */
+  C.hintAt = function (lvl) { var w = this.hintWait, s = 0; for (var i = 0; i < lvl; i++) s += w[i]; return s; };
+  C.hintState = function (ctx) {
+    var pz = this.currentPuzzle(ctx); if (!pz) return null;
+    var st = this.st; st.first = st.first || {}; if (st.first[pz.id] === undefined) st.first[pz.id] = st.elapsed;
+    var h = st.hint[pz.id] || { lvl: 0 }, remain = h.lvl >= 3 ? 0 : Math.max(0, this.hintAt(h.lvl + 1) - (st.elapsed - st.first[pz.id]));
+    return { pz: pz, lvl: h.lvl, remain: remain, max: 3 };
   };
   C.hintText = function (pz, lvl) { var t = pz.hints[lvl - 1].text; return typeof t === 'function' ? t(this.P) : t; };
-  /* 새 단계를 열 수 있으면 열고, 아직 대기 중이면 이미 본 마지막 힌트를 다시 보여 준다 */
-  C.requestHint = function () {
-    var hs = this.hintState(); if (!hs) return { none: true };
-    var pz = hs.pz, h = this.st.hint[pz.id] || (this.st.hint[pz.id] = { lvl: 0, at: -1e9 });
+  C.requestHint = function (ctx) {
+    var hs = this.hintState(ctx); if (!hs) return { none: true };
+    var pz = hs.pz, h = this.st.hint[pz.id] || (this.st.hint[pz.id] = { lvl: 0 });
     if (h.lvl >= 3 || hs.remain > 0) {
       if (h.lvl === 0) return { wait: hs.remain, pz: pz };
       return { again: true, lvl: h.lvl, remain: hs.remain, pz: pz, text: this.hintText(pz, h.lvl), hl: pz.hints[h.lvl - 1].hl };
     }
-    h.lvl++; h.at = this.st.elapsed; this.st.hintsUsed++;
-    return { lvl: h.lvl, remain: 0, pz: pz, text: this.hintText(pz, h.lvl), hl: pz.hints[h.lvl - 1].hl, fresh: true };
+    h.lvl++; this.st.hintsUsed++;
+    return { lvl: h.lvl, remain: 0, pz: pz, text: this.hintText(pz, h.lvl), hl: pz.hints[h.lvl - 1].hl, fresh: true, next: h.lvl < 3 ? this.hintAt(h.lvl + 1) - (this.st.elapsed - this.st.first[pz.id]) : 0 };
   };
 
   C.tick = function (dt) { this.st.elapsed += dt; };

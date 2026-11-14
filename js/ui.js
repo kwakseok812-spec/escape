@@ -65,15 +65,24 @@
     var r = hs.r, q = hs.quiet ? ' quiet' : '';
     return '<button class="hs' + q + '" data-hs="' + sceneId + '.' + hs.id + '" aria-label="' + (hs.id) + '" style="left:' + r[0] * 100 + '%;top:' + r[1] * 100 + '%;width:' + r[2] * 100 + '%;height:' + r[3] * 100 + '%"></button>';
   }
+  function invIds() { var ids = [], tags = false; core.st.inv.forEach(function (id) { if (id.indexOf('tag_') === 0) { if (!tags) { ids.push('tag_ring'); tags = true; } } else ids.push(id); }); return ids; }
+  function itemName(id) { return id === 'tag_ring' ? '태그 고리' : scn.items[id].name; }
+  function itemShort(id) { return id === 'tag_ring' ? '태그 고리' : (scn.items[id].short || scn.items[id].name); }
+  function updateTip() {
+    var t = '물건을 눌러 살펴보고, 소지품을 골라 누르면 쓸 수 있습니다.';
+    if (sel) t = '「' + itemName(sel) + '」을 골랐습니다. ' + (scn.items[sel].modes ? '한 번 더 누르면 ' + (core.st.flags.fl_mode === 'uv' ? '일반 빛' : '보라색 빛') + '으로 바뀝니다. 쓸 곳을 누르십시오.' : '쓸 곳이나 합칠 물건을 누르십시오.');
+    else if (core.cond('has:flashlight') && !core.st.flags.star_seen) t = '손전등을 고른 채 한 번 더 누르면 보라색 빛으로 바뀝니다.';
+    $('tip').textContent = t;
+  }
   function renderInv() {
-    var h = '';
-    core.st.inv.forEach(function (id) {
-      var it = scn.items[id];
-      h += '<button class="slot' + (sel === id ? ' sel' : '') + '" data-item="' + id + '" aria-label="' + it.name + '">' + art.ico(id, core) + '<span class="nm">' + it.name + '</span>' +
-        (it.modes ? '<span class="mode" data-mode="1">' + (core.st.flags.fl_mode === 'uv' ? ICON.uv : ICON.sun) + '</span>' : '') + '</button>';
+    var h = '', ids = invIds();
+    ids.forEach(function (id) {
+      var it = id === 'tag_ring' ? { modes: false } : scn.items[id];
+      h += '<button class="slot' + (sel === id ? ' sel' : '') + '" data-item="' + id + '" aria-label="' + itemName(id) + '">' + art.ico(id, core) + '<span class="nm">' + itemShort(id) + '</span>' +
+        (it.modes ? '<span class="modei' + (core.st.flags.fl_mode === 'uv' ? ' uv' : '') + '">' + (core.st.flags.fl_mode === 'uv' ? ICON.uv : ICON.sun) + '</span>' : '') + '</button>';
     });
-    for (var i = core.st.inv.length; i < 6; i++) h += '<div class="slot empty"></div>';
-    $('inv').innerHTML = h;
+    for (var i = ids.length; i < 12; i++) h += '<div class="slot blank"></div>';
+    $('inv').innerHTML = h; updateTip();
     applyHl();
   }
   function renderAll() { renderWall(); renderInv(); updateTop(); }
@@ -102,7 +111,20 @@
     after.forEach(function (e) { openZoom(e.to); });
     renderWall(); renderInv(); if (zoomId) renderZoom(); updateTop(); save();
   }
-  function pulseItem(id) { setTimeout(function () { var s = document.querySelector('.slot[data-item="' + id + '"]'); if (s && !calm) { s.classList.add('new'); setTimeout(function () { s.classList.remove('new'); }, 1200); } }, 30); }
+  function pulseItem(id) {
+    var sid = id.indexOf('tag_') === 0 ? 'tag_ring' : id;
+    setTimeout(function () {
+      var slot = document.querySelector('.slot[data-item="' + sid + '"]'); if (!slot) return;
+      try { slot.scrollIntoView({ inline: 'center', block: 'nearest', behavior: calm ? 'auto' : 'smooth' }); } catch (e) {}
+      if (calm) return;
+      var base = ($('zoom').hidden ? $('view') : $('zsvgw')).getBoundingClientRect(), r = slot.getBoundingClientRect(), el = document.createElement('div');
+      el.className = 'fly'; el.innerHTML = art.ico(sid, core); document.body.appendChild(el);
+      var sx = base.left + base.width / 2 - 36, sy = base.top + base.height / 2 - 36; el.style.left = sx + 'px'; el.style.top = sy + 'px';
+      var a = el.animate([{ transform: 'scale(.4)', opacity: 0 }, { transform: 'scale(1.9)', opacity: 1, offset: 0.3 }, { transform: 'scale(1.9)', opacity: 1, offset: 0.55 }, { transform: 'translate(' + (r.left + r.width / 2 - 36 - sx) + 'px,' + (r.top + r.height / 2 - 36 - sy) + 'px) scale(.7)', opacity: 1 }], { duration: 950, easing: 'ease-in-out' });
+      slot.style.visibility = 'hidden';
+      a.onfinish = function () { el.remove(); slot.style.visibility = ''; slot.classList.add('new'); setTimeout(function () { slot.classList.remove('new'); }, 900); };
+    }, 40);
+  }
   function solvedFx(lockId) { var z = $('zbox'); if (!calm && z) { z.classList.remove('flash'); void z.offsetWidth; z.classList.add('flash'); } }
 
   /* ---------------- 누르기 ---------------- */
@@ -112,8 +134,7 @@
     flush();
   }
   document.addEventListener('click', function (e) {
-    var t = e.target.closest ? e.target.closest('[data-hs],[data-item],[data-wall],.mode') : null; if (!t) return;
-    if (t.classList.contains('mode')) { e.stopPropagation(); core.toggleMode(); flush(); return; }
+    var t = e.target.closest ? e.target.closest('[data-hs],[data-item],[data-wall]') : null; if (!t) return;
     if (t.dataset.hs) { tapHs(t.dataset.hs); return; }
     if (t.dataset.wall) { goWall(t.dataset.wall); return; }
     if (t.dataset.item) { tapItem(t.dataset.item); }
@@ -122,9 +143,13 @@
     if (sel && sel !== id) {
       var a = sel; sel = null; core.combine(a, id); flush(); return;
     }
-    if (sel === id) { sel = null; renderInv(); examine(id); return; }
+    if (id === 'tag_ring') { examine('tag_ring'); return; }
+    if (sel === id) {
+      if (scn.items[id].modes) { core.toggleMode(); say(core.st.flags.fl_mode === 'uv' ? '보라색 빛으로 바꿨습니다.' : '일반 빛으로 바꿨습니다.'); flush(); return; }
+      sel = null; renderInv(); examine(id); return;
+    }
     sel = id; renderInv();
-    if (scn.items[id].modes) say(core.st.flags.fl_mode === 'uv' ? '보라색 빛 모드입니다. 작은 단추로 바꿉니다.' : '일반 빛 모드입니다. 작은 단추로 바꿉니다.');
+    if (scn.items[id].modes) say(core.st.flags.fl_mode === 'uv' ? '보라색 빛입니다. 한 번 더 누르면 일반 빛으로 바뀝니다.' : '일반 빛입니다. 한 번 더 누르면 보라색 빛으로 바뀝니다.');
   }
   function goWall(w) { if (zoomId) closeZoom(); core.enter(w); core.drain(); sel = sel; renderWall(); if (!calm) { var v = $('sceneSvg'); v.classList.remove('swap'); void v.offsetWidth; v.classList.add('swap'); } save(); }
   function nav(d) { var i = scn.walls.indexOf(core.st.wall); goWall(scn.walls[(i + d + scn.walls.length) % scn.walls.length]); }
@@ -146,6 +171,11 @@
     $('zoom').hidden = false; $('notebook').hidden = true; renderZoom(); updateTop(); save();
   }
   function examine(itemId) {
+    if (itemId === 'tag_ring') {
+      zoomId = '__item:tag_ring'; $('zoom').hidden = false;
+      $('zsvg').innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;background:radial-gradient(circle,#2c3a42,#10171b)">' + art.tagRingBig(core).replace('<svg ', '<svg style="width:100%" ') + '</div>';
+      $('zhs').innerHTML = ''; $('zlock').innerHTML = ''; $('zlock').style.display = 'none'; $('ztitle').textContent = '태그 고리'; return;
+    }
     var it = scn.items[itemId];
     if (it.examine) { openZoom(it.examine); return; }
     zoomId = '__item:' + itemId; $('zoom').hidden = false;
@@ -182,7 +212,7 @@
     else if (l.type === 'order') buildOrder(ctl, l, val, set);
     else if (l.type === 'dial') buildDial(ctl, l, val, set);
     else if (l.type === 'count') buildCount(ctl, l, val, set);
-    bindHandle(hd, l, function () { var r = core.tryOpen(id); flush(); if (!r.ok) { cooldownUi(id, hd); } });
+    bindHandle(hd, l, function () { core.tryOpen(id); flush(); });   // flush 가 위젯을 새로 그리며 대기 표시(cooldownUi)를 새 손잡이에 건다
     cooldownUi(id, hd);
   }
   function cooldownUi(id, hd) {
@@ -268,10 +298,11 @@
   }
   function buildDial(ctl, l, val, set) {
     var lockId = ctl.parentNode.dataset.lock, span = l.max - l.min, SW = 240;
-    var ticks = ''; for (var v = l.min; v <= l.max; v += 5) { var a = ((v - l.min) / span * SW - SW / 2 - 90) * Math.PI / 180; ticks += '<text x="' + (110 + Math.cos(a) * 92).toFixed(1) + '" y="' + (112 + Math.sin(a) * 92).toFixed(1) + '" font-size="15" fill="#c9d3d9" text-anchor="middle" font-weight="700">' + v + '</text>'; }
+    var ticks = ''; for (var v = l.min; v <= l.max; v += 5) { var a = ((v - l.min) / span * SW - SW / 2 - 90) * Math.PI / 180; ticks += '<text x="' + (110 + Math.cos(a) * 92).toFixed(1) + '" y="' + (112 + Math.sin(a) * 92).toFixed(1) + '" font-size="20" fill="#e9eef0" text-anchor="middle" font-weight="800">' + v + '</text>'; }
     for (var t = l.min; t <= l.max; t++) { var b = ((t - l.min) / span * SW - SW / 2 - 90) * Math.PI / 180; ticks += '<path d="M' + (110 + Math.cos(b) * 74).toFixed(1) + ' ' + (110 + Math.sin(b) * 74).toFixed(1) + ' L' + (110 + Math.cos(b) * (t % 5 ? 79 : 84)).toFixed(1) + ' ' + (110 + Math.sin(b) * (t % 5 ? 79 : 84)).toFixed(1) + '" stroke="#8e99a3" stroke-width="2"/>'; }
+    ticks += '<text x="110" y="176" font-size="22" fill="#ffd54a" text-anchor="middle" font-weight="900">°F</text>';
     ctl.innerHTML = '<div class="dialw"><button class="dm" aria-label="내리기">' + ICON.left + '</button><svg class="dial" viewBox="0 0 220 220"><circle cx="110" cy="110" r="104" fill="#2b3338" stroke="#59646d" stroke-width="6"/>' + ticks + '<g class="needle"><circle cx="110" cy="110" r="46" fill="#e9eef0" stroke="#9aa5ad" stroke-width="4"/><path d="M110 110 L110 70" stroke="#d8392c" stroke-width="7" stroke-linecap="round"/><circle cx="110" cy="110" r="8" fill="#333"/></g></svg><button class="dp" aria-label="올리기">' + ICON.right + '</button></div><div class="dval"></div>';
-    function draw() { var v = core.getLock(lockId), ang = (v - l.min) / span * SW - SW / 2; ctl.querySelector('.needle').setAttribute('transform', 'rotate(' + ang + ' 110 110)'); ctl.querySelector('.dval').textContent = v; }
+    function draw() { var v = core.getLock(lockId), ang = (v - l.min) / span * SW - SW / 2; ctl.querySelector('.needle').setAttribute('transform', 'rotate(' + ang + ' 110 110)'); ctl.querySelector('.dval').textContent = v + ' °F'; }
     function setv(v) { v = Math.max(l.min, Math.min(l.max, v)); set(v); draw(); }
     draw(); ctl.querySelector('.dm').addEventListener('click', function () { setv(core.getLock(lockId) - 1); }); ctl.querySelector('.dp').addEventListener('click', function () { setv(core.getLock(lockId) + 1); });
     var svg = ctl.querySelector('.dial'), a0 = null, v0 = 0, acc = 0, lastA = 0;
@@ -312,13 +343,16 @@
   });
 
   /* ---------------- 힌트 ---------------- */
+  var hintScene = null;
+  function curScene() { return (zoomId && zoomId.indexOf('__') !== 0) ? zoomId : core.st.wall; }
   function hintUi() {
-    var r = core.requestHint(), b = $('hintBox'), h = '';
+    hintScene = curScene(); var r = core.requestHint({ scene: hintScene }), b = $('hintBox'), h = '';
     if (r.none) h = '<p class="ht">지금은 풀 퍼즐이 없습니다.</p>';
     else if (r.wait !== undefined) h = '<p class="ht">잠시 후 힌트를 볼 수 있습니다.</p>';
     else {
       h = '<div class="lvl">' + [1, 2, 3].map(function (i) { return '<i class="' + (i <= r.lvl ? 'on' : '') + '"></i>'; }).join('') + '</div><p class="ht">' + r.text + '</p>';
-      if (r.remain > 0) h += '<p class="wt" data-remain="' + r.remain + '">다음 힌트까지 ' + fmtRemain(r.remain) + '</p>'; else if (r.lvl < 3) h += '<p class="wt">다음 힌트를 바로 볼 수 있습니다.</p>';
+      var rem = r.fresh ? r.next : r.remain;
+      if (rem > 0) h += '<p class="wt" data-remain="' + rem + '">다음 힌트까지 ' + fmtRemain(rem) + '</p>'; else if (r.lvl < 3) h += '<p class="wt">다음 힌트를 바로 볼 수 있습니다.</p>';
       hl = { t: r.hl || [], until: Date.now() + 7000 }; applyHl(); setTimeout(applyHl, 7100);
     }
     $('hintBody').innerHTML = h; b.hidden = false; save();
@@ -346,7 +380,7 @@
     ended = true; var st = core.st, tries = 0; for (var k in st.tries) tries += st.tries[k];
     var best = lsGet(BEST) || {}, t = Math.floor(st.elapsed), isBest = !best.t || t < best.t; if (isBest) { best.t = t; lsSet(BEST, best); }
     lsDel(KEY);
-    $('endBody').innerHTML = '<h2>비상 문이 열렸습니다</h2><p class="sub">다음 방으로 이어집니다.<br><b>다음 편에 이어집니다</b></p><dl><div><dt>걸린 시간</dt><dd>' + fmtT(st.elapsed) + '</dd></div><div><dt>힌트</dt><dd>' + st.hintsUsed + '번</dd></div><div><dt>여는 시도</dt><dd>' + tries + '번</dd></div><div><dt>최고 기록</dt><dd>' + fmtT(best.t) + (isBest ? ' (새 기록)' : '') + '</dd></div></dl>';
+    $('endBody').innerHTML = '<h2>비상 문이 열렸습니다</h2><p class="sub"><b>다음 편에 이어집니다</b></p><dl><div><dt>걸린 시간</dt><dd>' + fmtT(st.elapsed) + '</dd></div><div><dt>힌트</dt><dd>' + st.hintsUsed + '번</dd></div><div><dt>여는 시도</dt><dd>' + tries + '번</dd></div><div><dt>최고 기록</dt><dd>' + fmtT(best.t) + (isBest ? ' (새 기록)' : '') + '</dd></div></dl>';
     $('endBox').hidden = false; $('zoom').hidden = true; zoomId = null;
   }
   $('endAgain').addEventListener('click', function () { startGame(newSeed()); });
@@ -356,7 +390,7 @@
     if (!core || ended || document.hidden) { lastTick = 0; return; }
     var n = performance.now(); if (lastTick) { var dt = Math.min((n - lastTick) / 1000, 2); core.tick(dt); saveT += dt; if (saveT > 5) { saveT = 0; save(); } }
     lastTick = n;
-    var w = document.querySelector('.wt[data-remain]'); if (w && !$('hintBox').hidden) { var hs = core.hintState(); if (hs && hs.remain > 0) w.textContent = '다음 힌트까지 ' + fmtRemain(hs.remain); else if (hs) { w.textContent = '다음 힌트를 바로 볼 수 있습니다.'; w.removeAttribute('data-remain'); } }
+    var w = document.querySelector('.wt[data-remain]'); if (w && !$('hintBox').hidden) { var hs = core.hintState({ scene: hintScene }); if (hs && hs.remain > 0) w.textContent = '다음 힌트까지 ' + fmtRemain(hs.remain); else if (hs) { w.textContent = '다음 힌트를 바로 볼 수 있습니다.'; w.removeAttribute('data-remain'); } }
   }, 500);
   document.addEventListener('visibilitychange', function () { if (document.hidden) save(); lastTick = 0; });
   window.addEventListener('pagehide', save);
@@ -372,11 +406,15 @@
   function fitView() {
     var st = $('stage'), v = $('view'), wide = window.matchMedia('(min-aspect-ratio: 6/5)').matches;
     if (wide) st.style.height = ''; else {
-      var availH = $('app').clientHeight - $('top').offsetHeight - $('side').offsetHeight - 30;
+      var availH = $('app').clientHeight - $('top').offsetHeight - $('side').offsetHeight - 24;
       st.style.height = Math.max(120, Math.min(st.clientWidth / 0.8, availH)) + 'px';
     }
     var W = st.clientWidth, H = st.clientHeight; if (!W || !H) return;
     var w = Math.min(W, H * 0.8), h = w / 0.8; v.style.width = w + 'px'; v.style.height = h + 'px';
+    // 확대 장면 덮개: 장면 상자 영역만 덮고(소지품·도구는 눌림), 정사각 상자는 그 안에서 가장 크게
+    var r = v.getBoundingClientRect(), z = $('zoom');
+    z.style.left = r.left + 'px'; z.style.top = r.top + 'px'; z.style.right = 'auto'; z.style.bottom = 'auto'; z.style.width = r.width + 'px'; z.style.height = r.height + 'px';
+    var side = Math.max(200, Math.floor(Math.min(r.width, r.height) - 4)); document.documentElement.style.setProperty('--zbw', side + 'px');
   }
   window.addEventListener('resize', fitView); window.addEventListener('orientationchange', function () { setTimeout(fitView, 120); }); setInterval(fitView, 700);
 

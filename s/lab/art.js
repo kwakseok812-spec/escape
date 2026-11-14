@@ -84,22 +84,25 @@
     }
     return s;
   }
-  /* 그림 쪽지: 균주 배열 조건 */
+  /* 그림 쪽지: 균주 배열 조건 — notEnd = 양 끝칸에 ✕ · leftOf = 사이에 … (떨어져 있어도 됨) · adj = 두 칸이 맞닿음 */
   function consPic(c, x, y, w) {
     var s = '', cell = w / 4.6, gap = cell * 0.2, name = function (id) { return ESC.parts.STRAINS.filter(function (q) { return q.id === id; })[0].ko; };
+    var tx = function (cx, cy, id) { return txt(cx, cy, name(id), cell * 0.3, '#3a362e', 'text-anchor="middle" font-weight="700"'); };
     if (c.t === 'notEnd') {
       for (var i = 0; i < 4; i++) s += rect(x + i * (cell + gap), y, cell, cell, '#fffdf2', 'rx="8" stroke="#b9ad8a" stroke-width="3"');
       [0, 3].forEach(function (i) { var cx = x + i * (cell + gap) + cell / 2, cy = y + cell / 2; s += strainIcon(c.s, cx, cy, cell * 0.28) + '<path d="M' + (cx - cell * 0.36) + ' ' + (cy - cell * 0.36) + ' L' + (cx + cell * 0.36) + ' ' + (cy + cell * 0.36) + ' M' + (cx + cell * 0.36) + ' ' + (cy - cell * 0.36) + ' L' + (cx - cell * 0.36) + ' ' + (cy + cell * 0.36) + '" stroke="#d8392c" stroke-width="7" stroke-linecap="round"/>'; });
-      s += txt(x + w / 2, y + cell + cell * 0.45, name(c.s), cell * 0.32, '#3a362e', 'text-anchor="middle" font-weight="700"');
+      s += tx(x + w / 2, y + cell + cell * 0.45, c.s);
     } else if (c.t === 'leftOf') {
-      var ax = x + cell * 0.6, bx = x + w - cell * 0.6, cy = y + cell / 2;
-      s += strainIcon(c.a, ax, cy, cell * 0.36) + strainIcon(c.b, bx, cy, cell * 0.36) + arrow(ax + cell * 0.55, cy, bx - cell * 0.6, cy, '#3a362e', 6, '2 14');
-      s += txt(ax, y + cell + cell * 0.3, name(c.a), cell * 0.3, '#3a362e', 'text-anchor="middle" font-weight="700"') + txt(bx, y + cell + cell * 0.3, name(c.b), cell * 0.3, '#3a362e', 'text-anchor="middle" font-weight="700"');
+      var ax = x + cell * 0.55, bx = x + w - cell * 0.55, cy = y + cell / 2, mid = (ax + bx) / 2;
+      s += strainIcon(c.a, ax, cy, cell * 0.36) + strainIcon(c.b, bx, cy, cell * 0.36);
+      [-1, 0, 1].forEach(function (k) { s += '<circle cx="' + (mid + k * cell * 0.34) + '" cy="' + cy + '" r="' + cell * 0.055 + '" fill="#3a362e"/>'; });
+      s += arrow(mid + cell * 0.62, cy, bx - cell * 0.62, cy, '#3a362e', 5);
+      s += tx(ax, y + cell + cell * 0.3, c.a) + tx(bx, y + cell + cell * 0.3, c.b);
     } else {
-      var mx = x + w / 2 - cell * 0.5, cy2 = y + cell / 2;
-      s += rect(mx - cell * 0.55, y, cell * 1.1, cell, '#fffdf2', 'rx="8" stroke="#b9ad8a" stroke-width="3"') + rect(mx + cell * 0.55, y, cell * 1.1, cell, '#fffdf2', 'rx="8" stroke="#b9ad8a" stroke-width="3"');
-      s += strainIcon(c.a, mx, cy2, cell * 0.3) + strainIcon(c.b, mx + cell * 1.1, cy2, cell * 0.3) + arrow(mx + cell * 0.18, y + cell * 1.2, mx + cell * 1.0, y + cell * 1.2, '#3a362e', 6);
-      s += txt(mx, y + cell + cell * 0.7, name(c.a), cell * 0.3, '#3a362e', 'text-anchor="middle" font-weight="700"') + txt(mx + cell * 1.1, y + cell + cell * 0.7, name(c.b), cell * 0.3, '#3a362e', 'text-anchor="middle" font-weight="700"');
+      var mx = x + w / 2 - cell * 0.55, cy2 = y + cell / 2;
+      s += rect(mx - cell * 0.55, y, cell * 1.1, cell, '#fffdf2', 'rx="8" stroke="#3a362e" stroke-width="4"') + rect(mx + cell * 0.55, y, cell * 1.1, cell, '#fffdf2', 'rx="8" stroke="#3a362e" stroke-width="4"');
+      s += strainIcon(c.a, mx, cy2, cell * 0.3) + strainIcon(c.b, mx + cell * 1.1, cy2, cell * 0.3) + arrow(mx - cell * 0.4, y + cell * 1.18, mx + cell * 1.6, y + cell * 1.18, '#3a362e', 5);
+      s += tx(mx, y + cell + cell * 0.72, c.a) + tx(mx + cell * 1.1, y + cell + cell * 0.72, c.b);
     }
     return s;
   }
@@ -142,7 +145,8 @@
       s += '<path d="M' + (cx - 34) + ' 372 L' + (cx - 52) + ' 420 L' + (cx + 52) + ' 420 L' + (cx + 34) + ' 372 Z" fill="url(#gCult)" opacity=".95"/>' + rect(cx - 18, 262, 36, 12, '#cfe9ec', 'rx="3" opacity=".8"');
     }
     s += rect(32, 620, 740, 36, '#586067') + rect(32, 656, 740, 20, '#2b3338') + rect(40, 676, 8, 24, '#2b3338') + rect(752, 676, 8, 24, '#2b3338');   // 실험대
-    s += rect(40, 700, 190, 130, '#4a545b', 'rx="6" stroke="#2b3338" stroke-width="4"') + '<circle cx="135" cy="770" r="14" fill="#a7b2bb"/>';        // 시료 상자
+    s += rect(40, 700, 190, 130, '#4a545b', 'rx="8" stroke="#2b3338" stroke-width="4"') + rect(40, 700, 190, 34, '#5c6870', 'rx="8"') + rect(100, 722, 70, 16, '#2b3338', 'rx="6"') +
+      [0, 1, 2, 3].map(function (i) { return '<circle cx="' + (62 + i * 36) + '" cy="772" r="11" fill="#1c2327"/><circle cx="' + (62 + i * 36) + '" cy="772" r="7" fill="#9fd4ff" opacity=".35"/>'; }).join('') + rect(100, 800, 70, 14, '#a7b2bb', 'rx="5"') + '<circle cx="135" cy="807" r="3" fill="#333"/>';   // 시료 상자(시험관 보관함)
     s += '<g transform="translate(560 320)"><rect x="40" y="226" width="160" height="14" fill="#1c2327" rx="4"/><path d="M110 226 L130 60 L170 60 L180 226 Z" fill="#c9d1d6"/><rect x="95" y="150" width="110" height="26" fill="#9aa5ad" rx="4"/><rect x="60" y="176" width="140" height="10" fill="#222"/><circle cx="150" cy="40" r="22" fill="#2b3338"/><path d="M60 226 H190" stroke="#8e99a3" stroke-width="10"/></g>';
     s += rect(40, 460, 80, 110, '#8e99a3', 'rx="4" opacity=".7"') + rect(48, 470, 64, 8, '#e9eef0', 'opacity=".5"');                              // 싱크대
     s += lampLight();
@@ -163,9 +167,7 @@
   /* ===================== 벽 위에 얹는 층 ===================== */
   A.pDeskCal = function (c) { return calendar(c.P.cal, 118, 136, 164, 284, { head: '#4a6a8a' }); };
   A.pDeskBoard = function (c) {
-    return paperNote(352, 160, 96, 80, -4, '#fff6b8') + paperNote(470, 168, 84, 70, 5, '#cfe8ff') + paperNote(380, 270, 110, 84, 3, '#ffd9d9') + paperNote(520, 262, 96, 90, -6, '#e6f5d0') +
-      consPic(c.P.arr.cons[0], 358, 172, 84) .replace(/<text[^>]*>[^<]*<\/text>/g, '') + '<g opacity=".55">' + '<circle cx="415" cy="318" r="14" fill="none" stroke="#7a5a4a" stroke-width="3"/><path d="M415 318 V306 M415 318 H424" stroke="#7a5a4a" stroke-width="3"/><path d="M548 285 q20 -20 40 0 t0 40" stroke="#4a6a3a" stroke-width="3" fill="none"/></g>' +
-      pin(400, 166, 0.5) + pin(512, 172, 0.5) + pin(432, 276, 0.5) + pin(570, 268, 0.5);
+    return paperNote(380, 190, 190, 150, -3, '#fff6b8') + consPic(c.P.arr.cons[0], 392, 214, 168).replace(/<text[^>]*>[^<]*<\/text>/g, '') + pin(474, 196, 0.6);
   };
   A.pDeskMemo = function (c) { return c.st.flags.note_rubbed ? '' : '<g stroke="#bdb79c" stroke-width="1.5" opacity=".7"><path d="M312 536 H428 M312 546 H428"/></g>'; };
   A.pDeskPencil = function (c) { return c.st.flags.got_pencil ? '' : '<g transform="translate(116 506) rotate(-12)"><rect width="96" height="10" fill="#e3b04b" rx="3"/><path d="M96 0 L116 5 L96 10 Z" fill="#e8c9a0"/><path d="M110 3 L116 5 L110 7 Z" fill="#333"/><rect width="14" height="10" fill="#d8392c" rx="3"/></g>'; };
@@ -182,9 +184,9 @@
   };
   A.pBenchItems = function (c) {
     var s = '';
-    if (!c.st.flags.got_trypan) s += '<g transform="translate(236 540)"><rect width="38" height="68" rx="6" fill="#1d4f8a"/><rect x="10" y="-10" width="18" height="14" fill="#222" rx="3"/><rect x="4" y="22" width="30" height="26" fill="#e9eef0" rx="2"/></g>';
-    if (!c.st.flags.got_chamber) s += '<g transform="translate(290 576)"><rect width="104" height="40" rx="6" fill="#23303a"/><rect x="10" y="10" width="84" height="20" fill="#8e99a3" rx="3"/></g>';
-    if (!c.st.flags.got_coverslip) s += '<g transform="translate(414 580)"><rect width="72" height="38" rx="4" fill="#d6c9a0"/><rect x="8" y="8" width="56" height="8" fill="#e9eef0" opacity=".8"/></g>';
+    if (!c.st.flags.got_trypan) s += '<g transform="translate(200 506)"><rect width="56" height="96" rx="9" fill="#1d4f8a"/><rect x="14" y="-14" width="28" height="20" fill="#222" rx="4"/><rect x="6" y="34" width="44" height="38" fill="#e9eef0" rx="3"/><circle cx="28" cy="53" r="9" fill="#2a4fb8"/></g>';
+    if (!c.st.flags.got_chamber) s += '<g transform="translate(290 568)"><rect width="108" height="52" rx="8" fill="#23303a"/><rect x="10" y="12" width="88" height="26" fill="#8e99a3" rx="3"/><g stroke="#2b3338" stroke-width="2" fill="none"><rect x="24" y="16" width="20" height="18"/><rect x="60" y="16" width="20" height="18"/></g></g>';
+    if (!c.st.flags.got_coverslip) s += '<g transform="translate(420 566)"><rect width="96" height="62" rx="6" fill="#cfe9ec" opacity=".35" stroke="#9fd4e0" stroke-width="3"/><rect x="12" y="22" width="52" height="30" fill="#e9fbff" opacity=".75" stroke="#8fc8d0" stroke-width="2"/><rect x="22" y="14" width="52" height="30" fill="#e9fbff" opacity=".6" stroke="#8fc8d0" stroke-width="2"/><rect x="32" y="6" width="52" height="30" fill="#e9fbff" opacity=".5" stroke="#8fc8d0" stroke-width="2"/></g>';
     return s;
   };
   A.pDoorFridge = function (c) {
@@ -220,17 +222,20 @@
   A.zBoard = function (c) {
     var s = zbg() + rect(50, 60, 700, 680, '#2a1f14', 'rx="14"') + rect(66, 76, 668, 648, '#a37a4a', 'rx="8"');
     for (var i = 0; i < 120; i++) s += '<circle cx="' + (80 + (i * 61) % 640) + '" cy="' + (90 + (i * 43) % 620) + '" r="4" fill="#8b6538" opacity=".55"/>';
-    s += paperNote(110, 110, 300, 250, -3, '#fff6b8') + consPic(c.P.arr.cons[0], 128, 160, 260) + pin(250, 124, 1.1);
-    s += paperNote(450, 130, 230, 170, 4, '#cfe8ff') + '<g stroke="#2c6ea8" stroke-width="5" fill="none"><circle cx="565" cy="215" r="48"/><path d="M565 215 V180 M565 215 H590"/></g>' + pin(565, 144, 1);
-    s += paperNote(130, 420, 250, 260, 3, '#ffd9d9') + '<g stroke="#a04a4a" stroke-width="5" fill="none"><path d="M200 520 h110 M215 560 h80 M200 600 h110"/><circle cx="255" cy="640" r="12"/></g>' + pin(255, 434, 1);
-    s += paperNote(450, 380, 250, 300, -5, '#e6f5d0') + '<g stroke="#4a6a3a" stroke-width="5" fill="none"><path d="M500 640 q40 -120 80 0 q40 -120 80 0"/><path d="M510 470 h140 M510 510 h100"/></g>' + pin(575, 396, 1);
+    s += paperNote(150, 170, 500, 400, -2, '#fff6b8') + consPic(c.P.arr.cons[0], 190, 250, 420) + pin(400, 190, 1.4);
     return s + zfin();
   };
   A.zWb = function (c) {
-    var s = zbg() + rect(40, 70, 720, 600, '#1b2327', 'rx="10"') + rect(54, 84, 692, 572, '#eef1f2', 'rx="6"') + rect(54, 640, 692, 16, '#8e99a3');
-    s += '<g stroke="#e8e4dc" stroke-width="22" opacity=".5"><path d="M90 560 L300 540 M450 120 L600 150"/></g>';
-    s += consPic(c.P.arr.cons[1], 90, 150, 360).replace(/#3a362e/g, '#1f4f8a').replace(/#fffdf2/g, 'none') + '<g stroke="#c0392b" stroke-width="6" fill="none" opacity=".8"><path d="M520 140 h160 M520 190 h120 M520 240 h140"/><circle cx="600" cy="400" r="70"/><path d="M600 400 L650 360"/></g>';
-    s += '<g stroke="#2c6ea8" stroke-width="5" fill="none" opacity=".7"><path d="M100 520 q60 -90 120 0 t120 0 t120 0"/></g>';
+    var P = c.P, acc = ESC.parts.BANDS.indexOf(P.dir.accept) >= 0 ? P.dir.accept : 'blue', oth = acc === 'blue' ? 'orange' : 'blue';
+    var s = zbg() + rect(40, 70, 720, 640, '#1b2327', 'rx="10"') + rect(54, 84, 692, 612, '#eef1f2', 'rx="6"') + rect(54, 680, 692, 16, '#8e99a3');
+    s += '<g stroke="#e8e4dc" stroke-width="22" opacity=".45"><path d="M90 640 L300 620 M520 120 L700 150"/></g>';
+    s += consPic(P.arr.cons[1], 90, 120, 330).replace(/#3a362e/g, '#1f4f8a').replace(/#fffdf2/g, 'none');
+    s += '<path d="M440 110 V420" stroke="#c9d3d9" stroke-width="3" stroke-dasharray="4 10"/>';
+    // 책 읽는 규칙: 띠 색 ✓ 만 읽고, 번호 작은 것부터
+    s += '<g transform="translate(560 160)">' + rect(-80, -26, 150, 52, COL[acc], 'rx="8"') + '<g transform="translate(110 0)" stroke="#2b9a55" stroke-width="9" fill="none" stroke-linecap="round"><path d="M-18 2 L-6 16 L20 -16"/></g></g>';
+    s += '<g transform="translate(560 270)">' + rect(-80, -26, 150, 52, COL[oth], 'rx="8" opacity=".7"') + '<g transform="translate(110 0)" stroke="#d8392c" stroke-width="9" fill="none" stroke-linecap="round"><path d="M-16 -16 L16 16 M16 -16 L-16 16"/></g></g>';
+    s += '<g transform="translate(560 380)" stroke="#1f4f8a" stroke-width="5" fill="none"><ellipse rx="52" ry="30"/><circle r="14" fill="#1f4f8a"/></g>';
+    s += '<g transform="translate(470 480)">' + [0, 1, 2].map(function (k) { return '<circle cx="' + (k * 90 + 40) + '" cy="0" r="28" fill="none" stroke="#1f4f8a" stroke-width="5"/>' + '<text x="' + (k * 90 + 40) + '" y="13" font-size="34" font-weight="900" text-anchor="middle" fill="#1f4f8a" ' + F + '>' + (k + 1) + '</text>' + (k < 2 ? arrow(k * 90 + 72, 0, k * 90 + 100, 0, '#1f4f8a', 5) : ''); }).join('') + '</g>';
     return s + zfin();
   };
   A.zDrawer = function (c) {
@@ -240,15 +245,14 @@
     return s + zfin();
   };
   A.zBooks = function (c) {
-    var s = zbg() + rect(30, 60, 740, 470, '#3a2816', 'rx="10"') + rect(44, 74, 712, 442, '#1c130b') + rect(44, 480, 712, 14, '#6a4a2a'), P = c.P, x = 60;
-    var fill = ['#6a2a2a', '#2a4a6a', '#3a5a3a', '#7a6a2a'], dec = [0, 1, 2, 3, 4, 5];
-    for (var i = 0; i < 4; i++) {
-      var b = P.dir.books[i], bx = 110 + i * 150, h = 330 - i * 14 % 40;
-      s += rect(bx, 480 - h, 112, h, fill[(i + 1) % 4], 'rx="4" stroke="#0e0905" stroke-width="3"') + rect(bx + 8, 480 - h + 14, 96, 10, '#e3b04b', 'opacity=".55"');
-      s += '<circle cx="' + (bx + 56) + '" cy="' + (480 - h + 80) + '" r="34" fill="#f3e9d8"/>' + txt(bx + 56, 480 - h + 94, b.vol, 44, '#2a1f14', 'text-anchor="middle" font-weight="900"');
-      s += '<circle cx="' + (bx + 56) + '" cy="' + (480 - h + 200) + '" r="34" fill="#2a1f14" stroke="#f3e9d8" stroke-width="3"/>' + dirArrow(b.arrow, bx + 56, 480 - h + 200, 18, '#f3e9d8');
+    var s = zbg() + rect(30, 60, 740, 470, '#3a2816', 'rx="10"') + rect(44, 74, 712, 442, '#1c130b') + rect(44, 480, 712, 14, '#6a4a2a'), P = c.P;
+    var fill = ['#6a2a2a', '#2a4a6a', '#3a5a3a', '#7a6a2a', '#5a3a6a', '#2a5a5a'];
+    for (var i = 0; i < 6; i++) {
+      var b = P.dir.books[i], bx = 62 + i * 114, h = 340 - (i * 17) % 40;
+      s += rect(bx, 480 - h, 100, h, fill[i], 'rx="4" stroke="#0e0905" stroke-width="3"') + rect(bx, 480 - h + 52, 100, 34, COL[b.band], 'opacity=".95"');
+      s += '<circle cx="' + (bx + 50) + '" cy="' + (480 - h + 130) + '" r="30" fill="#f3e9d8"/>' + txt(bx + 50, 480 - h + 143, b.vol, 40, '#2a1f14', 'text-anchor="middle" font-weight="900"');
+      s += '<circle cx="' + (bx + 50) + '" cy="' + (480 - h + 215) + '" r="30" fill="#2a1f14" stroke="#f3e9d8" stroke-width="3"/>' + dirArrow(b.arrow, bx + 50, 480 - h + 215, 16, '#f3e9d8');
     }
-    for (var k = 0; k < 7; k++) if (k % 2 === 0) s += rect(60 + k * 4, 100 + k * 8, 20, 60, '#4a3a2a', 'rx="3" opacity=".7"');
     s += c.st.solved.books ? txt(400, 570, '책장 뒤 칸이 열렸습니다', 28, '#b9a88f', 'text-anchor="middle"') : '';
     return s + zfin();
   };
@@ -278,26 +282,37 @@
     return s + zfin();
   };
   A.zBox = function (c) {
-    var s = zbg() + rect(70, 80, 660, 600, '#4a545b', 'rx="16" stroke="#2b3338" stroke-width="8"') + rect(110, 120, 580, 270, '#3a444b', 'rx="12"') + '<circle cx="400" cy="250" r="70" fill="#a7b2bb" stroke="#59646d" stroke-width="8"/>';
-    s += '<g transform="translate(250 450)"><path d="M-20 -30 L-20 -10 L-50 40 L50 40 L20 -10 L20 -30 Z" fill="url(#gGlass)" stroke="#b7e6ea" stroke-width="3"/><path d="M-36 14 L-50 38 L50 38 L36 14 Z" fill="url(#gCult)"/></g>';
-    s += '<g transform="translate(560 452)"><path d="M-44 -30 H22 L48 0 L22 30 H-44 Z" fill="#e9eef0" stroke="#59646d" stroke-width="4"/><circle cx="26" cy="0" r="7" fill="#3a444b"/></g>';
+    var s = zbg() + rect(50, 40, 700, 440, '#4a545b', 'rx="18" stroke="#2b3338" stroke-width="8"') + rect(50, 40, 700, 70, '#5c6870', 'rx="18"') + rect(330, 70, 140, 26, '#2b3338', 'rx="10"') + rect(360, 456, 80, 18, '#a7b2bb', 'rx="6"');
+    s += rect(86, 124, 628, 300, '#f2efe3', 'rx="12"');
+    // 왼쪽: 병 자리 칸 그림(병 네 개 중 ★ 표시 병의 자리 번호) → 숫자 칸
+    for (var i = 0; i < 4; i++) { var fx = 128 + i * 64; s += '<path d="M' + (fx - 8) + ' 168 L' + (fx - 8) + ' 190 L' + (fx - 26) + ' 226 L' + (fx + 26) + ' 226 L' + (fx + 8) + ' 190 L' + (fx + 8) + ' 168 Z" fill="#cfe9ec" stroke="#6aa0aa" stroke-width="3"/><path d="M' + (fx - 20) + ' 208 L' + (fx - 26) + ' 224 L' + (fx + 26) + ' 224 L' + (fx + 20) + ' 208 Z" fill="#4fae5a"/>'; }
+    s += symbol(3, 128 + 64, 146, 17, '#9b6cf0') + '<path d="M192 160 V166" stroke="#9b6cf0" stroke-width="3"/>';
+    s += arrow(224, 240, 224, 296, '#3a362e', 6) + rect(186, 304, 76, 76, '#fffdf2', 'rx="10" stroke="#3a362e" stroke-width="5"');
+    // 오른쪽: 균주 번호표 그림 → 숫자 칸
+    s += '<g transform="translate(560 190)"><rect x="-44" y="-50" width="88" height="110" rx="8" fill="#f4efdc" stroke="#b8b09c" stroke-width="3"/>' + [0, 1, 2, 3].map(function (k) { return '<circle cx="-22" cy="' + (-26 + k * 24) + '" r="7" fill="#6aa86a"/><rect x="-8" y="' + (-31 + k * 24) + '" width="34" height="10" rx="3" fill="#3a362e"/>'; }).join('') + '</g>';
+    s += arrow(560, 262, 560, 296, '#3a362e', 6) + rect(522, 304, 76, 76, '#fffdf2', 'rx="10" stroke="#3a362e" stroke-width="5"');
+    // 두 칸을 붙여 쓴다(괄호+자물쇠)
+    s += '<path d="M190 396 Q392 440 594 396" stroke="#3a362e" stroke-width="5" fill="none"/><g transform="translate(392 410)" stroke="#3a362e" stroke-width="5" fill="none"><rect x="-22" y="0" width="44" height="34" rx="6"/><path d="M-12 0 V-14 a12 12 0 0 1 24 0 V0"/></g>';
     return s + zfin();
   };
   A.zScope = function (c) {
-    var f = c.st.flags, P = c.P, s = zbg() + '<circle cx="400" cy="300" r="278" fill="#0c1215" stroke="#59646d" stroke-width="12"/><circle cx="400" cy="300" r="262" fill="#cfe8ea"/>';
-    if (!f.chamber_on) { s += '<circle cx="400" cy="300" r="262" fill="#9fb4b8"/>' + rect(250, 250, 300, 100, '#7b8c91', 'rx="10"') + txt(400, 310, '빈 스테이지', 34, '#e9eef0', 'text-anchor="middle" font-weight="700"'); }
+    var f = c.st.flags, P = c.P, X0 = 223, Y0 = 56, L = 118, s = zbg() + rect(X0 - 18, Y0 - 18, L * 3 + 36, L * 3 + 36, '#0c1215', 'rx="22" stroke="#59646d" stroke-width="8"');
+    if (!f.chamber_on) { s += rect(X0, Y0, L * 3, L * 3, '#9fb4b8', 'rx="10"') + rect(X0 + 40, Y0 + 130, L * 3 - 80, 94, '#7b8c91', 'rx="10"') + txt(400, Y0 + 190, '빈 스테이지', 32, '#e9eef0', 'text-anchor="middle" font-weight="700"'); }
     else {
-      s += '<g>';
-      for (var q = 0; q < 4; q++) {
-        var ox = 400 + (q % 2 ? 12 : -192), oy = 300 + (q < 2 ? -192 : 12), L = 180;
-        s += rect(ox, oy, L, L, '#e8f6f6', 'stroke="#2b3338" stroke-width="3"');
-        s += '<g stroke="#9bb5b8" stroke-width="1">' + [1, 2, 3, 4].map(function (k) { return '<path d="M' + (ox + k * L / 5) + ' ' + oy + ' V' + (oy + L) + ' M' + ox + ' ' + (oy + k * L / 5) + ' H' + (ox + L) + '"/>'; }).join('') + '</g>';
-        if (f.sample_on) P.cnt.squares[q].forEach(function (o) { s += o.dead ? '<circle cx="' + (ox + o.x * L) + '" cy="' + (oy + o.y * L) + '" r="13" fill="#2a4fb8" stroke="#16307a" stroke-width="3"/>' : '<circle cx="' + (ox + o.x * L) + '" cy="' + (oy + o.y * L) + '" r="13" fill="#6fd06a" stroke="#2c8a3a" stroke-width="3"/><circle cx="' + (ox + o.x * L - 3) + '" cy="' + (oy + o.y * L - 3) + '" r="4" fill="#bff0b8"/>'; });
+      s += rect(X0, Y0, L * 3, L * 3, '#dff0f1', 'rx="6"');
+      for (var q = 0; q < 9; q++) {
+        var ox = X0 + (q % 3) * L, oy = Y0 + Math.floor(q / 3) * L, corner = ESC.parts.CORNERS.indexOf(q) >= 0;
+        s += rect(ox, oy, L, L, corner ? '#eaf6f4' : '#e3ebec', 'stroke="' + (corner ? '#d4a52c' : '#7d8e92') + '" stroke-width="' + (corner ? 5 : 2) + '"');
+        s += '<g stroke="#a9c1c4" stroke-width="1.2">' + [1, 2, 3].map(function (k) { return '<path d="M' + (ox + k * L / 4) + ' ' + oy + ' V' + (oy + L) + ' M' + ox + ' ' + (oy + k * L / 4) + ' H' + (ox + L) + '"/>'; }).join('') + '</g>';
+        if (f.sample_on) P.cnt.squares[q].forEach(function (o) { var cx = ox + o.x * L, cy = oy + o.y * L; s += o.dead ? '<circle cx="' + cx + '" cy="' + cy + '" r="9" fill="#2a4fb8" stroke="#16307a" stroke-width="2.5"/>' : '<circle cx="' + cx + '" cy="' + cy + '" r="9" fill="#6fd06a" stroke="#2c8a3a" stroke-width="2.5"/><circle cx="' + (cx - 2.5) + '" cy="' + (cy - 2.5) + '" r="3" fill="#bff0b8"/>'; });
       }
-      s += '</g>';
-      if (!f.sample_on) s += txt(400, 300, '시료를 채우세요', 32, '#506670', 'text-anchor="middle" font-weight="700"');
+      if (!f.sample_on) s += txt(400, Y0 + L * 1.5 + 10, '시료를 채우세요', 28, '#506670', 'text-anchor="middle" font-weight="700"');
     }
-    s += '<g transform="translate(0 598)">' + '<circle cx="190" cy="0" r="14" fill="#6fd06a" stroke="#2c8a3a" stroke-width="3"/><path d="M214 4 L224 14 L244 -12" stroke="#4fe08a" stroke-width="7" fill="none" stroke-linecap="round"/>' + '<circle cx="470" cy="0" r="14" fill="#2a4fb8" stroke="#16307a" stroke-width="3"/><path d="M494 -10 L520 12 M520 -10 L494 12" stroke="#e0483c" stroke-width="7" stroke-linecap="round"/></g>';
+    // 안내 카드(그림): 모서리 큰 칸 네 개만 센다 · 초록 ○ 세기 · 파랑 ● 제외
+    s += rect(110, 464, 580, 82, '#f4efdc', 'rx="12"');
+    s += '<g transform="translate(150 476)">' + [0, 1, 2, 3, 4, 5, 6, 7, 8].map(function (q) { var corner = ESC.parts.CORNERS.indexOf(q) >= 0; return rect((q % 3) * 20, Math.floor(q / 3) * 20, 18, 18, corner ? '#d4a52c' : '#b9c3c6', 'rx="2"'); }).join('') + '</g>';
+    s += '<g transform="translate(260 505)"><circle r="15" fill="#6fd06a" stroke="#2c8a3a" stroke-width="3"/><path d="M28 4 L40 16 L62 -12" stroke="#2b9a55" stroke-width="8" fill="none" stroke-linecap="round"/></g>';
+    s += '<g transform="translate(430 505)"><circle r="15" fill="#2a4fb8" stroke="#16307a" stroke-width="3"/><path d="M28 -14 L56 14 M56 -14 L28 14" stroke="#d8392c" stroke-width="8" stroke-linecap="round"/></g>';
     return s + zfin();
   };
   A.zFridge = function (c) {
@@ -317,13 +332,15 @@
     return s + zfin();
   };
   A.zPanel = function (c) {
-    var open = c.st.flags.door_open, s = zbg() + rect(40, 40, 720, 720, 'url(#gMetal)', 'rx="22" stroke="#3b444b" stroke-width="8"') + rect(70, 70, 660, 660, '#2b3338', 'rx="14"');
-    s += '<circle cx="140" cy="130" r="22" fill="' + (open ? '#4fe08a' : '#d8392c') + '"/>';
-    ['red', 'orange', 'green', 'blue'].forEach(function (k, i) { s += '<circle cx="' + (300 + i * 100) + '" cy="130" r="20" fill="' + COL[k] + '"/>'; });
-    s += '<g transform="translate(400 250)">' + '<path d="M-60 20 L-20 -34 L-10 -4 L20 -4 L-20 40 L-12 10 Z" fill="#ffd54a"/>' + arrow(40, 4, 230, 4, '#f3e9d8', 7) + '<g opacity=".95"><path d="M-250 4 H-80" stroke="#f3e9d8" stroke-width="2" opacity="0"/></g></g>';
-    s += '<g transform="translate(120 300)" fill="#f3e9d8" opacity=".85"><rect x="0" y="0" width="120" height="20" rx="6" fill="#59646d"/><rect x="0" y="0" width="120" height="20" rx="6" fill="url(#gGlass)"/></g>';
-    s += rect(110, 330, 80, 8, '#ffd54a', 'rx="4"') + rect(210, 334, 60, 6, '#ffd54a', 'rx="3" opacity=".75"') + rect(290, 336, 40, 4, '#ffd54a', 'rx="2" opacity=".5"');
-    s += txt(400, 380, '', 1, '#fff');
+    var open = c.st.flags.door_open, dots = (ESC.scenarios && ESC.scenarios.lab && ESC.scenarios.lab.panelDots) || ['green', 'red', 'blue', 'orange'];
+    var s = zbg() + rect(40, 40, 720, 720, 'url(#gMetal)', 'rx="22" stroke="#3b444b" stroke-width="8"') + rect(70, 70, 660, 660, '#2b3338', 'rx="14"');
+    s += '<circle cx="130" cy="124" r="20" fill="' + (open ? '#4fe08a' : '#d8392c') + '"/>';
+    // 색 점 4개: 순서 단서가 되지 않게 2×2로 흩어 놓는다
+    dots.forEach(function (k, i) { s += '<circle cx="' + (214 + (i % 2) * 46) + '" cy="' + (112 + Math.floor(i / 2) * 46) + '" r="17" fill="' + COL[k] + '" stroke="#10171b" stroke-width="3"/>'; });
+    // 큰 번개 → 작은 번개(에너지가 큰 쪽부터 왼쪽)
+    function bolt(cx, cy, sc, fill) { return '<path transform="translate(' + cx + ' ' + cy + ') scale(' + sc + ')" d="M-14 24 L6 -26 L10 -4 L26 -4 L-6 32 L-2 8 Z" fill="' + fill + '"/>'; }
+    s += bolt(400, 140, 1.7, '#ffd54a') + arrow(450, 140, 560, 140, '#f3e9d8', 8) + bolt(620, 140, 0.8, '#a58f36');
+    s += rect(110, 226, 580, 6, '#59646d', 'rx="3" opacity=".6"');
     return s + zfin();
   };
   A.zStrain = function (c) {
@@ -334,9 +351,9 @@
   A.zTextbook = function (c) {
     var s = zbg() + paperNote(60, 40, 680, 720, 0, '#f4efdc') + txt(400, 110, '빛의 색과 에너지', 38, '#3a362e', 'text-anchor="middle" font-weight="800"');
     var cols = [['#7a3fd0', '보라', 410], ['#2b6fe0', '파랑', 470], ['#3fbf5a', '초록', 530], ['#f0a020', '주황', 600], ['#e03a2a', '빨강', 650]];
-    cols.forEach(function (k, i) { var x = 110 + i * 116; s += rect(x, 170, 112, 110, k[0], 'rx="6"') + txt(x + 56, 232, k[1], 30, '#fff', 'text-anchor="middle" font-weight="800"') + txt(x + 56, 316, k[2] + ' nm', 28, '#3a362e', 'text-anchor="middle" font-weight="700"'); });
+    cols.forEach(function (k, i) { var x = 110 + i * 116; s += rect(x, 170, 112, 110, k[0], 'rx="6"') + txt(x + 56, 232, k[1], 30, '#fff', 'text-anchor="middle" font-weight="800"') + txt(x + 56, 316, '약 ' + k[2], 26, '#3a362e', 'text-anchor="middle" font-weight="700"'); });
     s += arrow(120, 360, 680, 360, '#3a362e', 5) + txt(120, 396, '파장 짧음', 24, '#3a362e', 'font-weight="700"') + txt(680, 396, '파장 긺', 24, '#3a362e', 'text-anchor="end" font-weight="700"');
-    s += txt(400, 500, '파장이 짧을수록 빛의 에너지가 큽니다.', 30, '#2a1f14', 'text-anchor="middle" font-weight="700"') + txt(400, 580, '엽록소는 빨강과 파랑 빛을 흡수하고', 28, '#3a362e', 'text-anchor="middle"') + txt(400, 622, '초록 빛은 반사합니다.', 28, '#3a362e', 'text-anchor="middle"');
+    s += txt(400, 480, '파장(nm)이 짧을수록 빛의 에너지가 큽니다.', 30, '#2a1f14', 'text-anchor="middle" font-weight="700"') + txt(400, 580, '엽록소는 주로 빨강과 파랑 빛을 흡수하고', 28, '#3a362e', 'text-anchor="middle"') + txt(400, 622, '초록 빛은 반사합니다.', 28, '#3a362e', 'text-anchor="middle"');
     return s + zfin();
   };
 
@@ -349,12 +366,29 @@
     else if (k === 'table') s = '<rect x="22" y="14" width="56" height="72" rx="5" fill="#f4efdc" stroke="#b8b09c" stroke-width="3"/><g fill="#6aa86a">' + [0, 1, 2, 3].map(function (i) { return '<circle cx="36" cy="' + (30 + i * 15) + '" r="5"/>'; }).join('') + '</g><g fill="#3a362e">' + [0, 1, 2, 3].map(function (i) { return '<rect x="48" y="' + (27 + i * 15) + '" width="20" height="6" rx="2"/>'; }).join('') + '</g>';
     else if (k === 'book') s = '<rect x="20" y="16" width="60" height="70" rx="4" fill="#2a4a6a"/><rect x="26" y="16" width="6" height="70" fill="#1c3550"/><rect x="40" y="30" width="30" height="8" rx="2" fill="#f3e9d8"/><g><rect x="40" y="48" width="8" height="12" fill="#7a3fd0"/><rect x="48" y="48" width="8" height="12" fill="#2b6fe0"/><rect x="56" y="48" width="8" height="12" fill="#3fbf5a"/><rect x="64" y="48" width="8" height="12" fill="#e03a2a"/></g>';
     else if (k === 'tag') { var col = id.split('_')[1]; s = '<path d="M20 22 H66 L84 50 L66 78 H20 Z" fill="' + COL[col] + '" stroke="#fff" stroke-width="3"/><circle cx="30" cy="50" r="5" fill="#1c1611"/><text x="58" y="62" font-size="34" font-weight="900" text-anchor="middle" fill="#fff" ' + F + '>' + c.P.tags[col] + '</text>'; }
-    else if (k === 'coverslip') s = '<rect x="24" y="40" width="52" height="30" rx="2" fill="#cfe9ec" opacity=".8" stroke="#8fc8d0" stroke-width="3"/><rect x="24" y="40" width="52" height="8" fill="#fff" opacity=".5"/>';
+    else if (k === 'coverslip') s = '<rect x="12" y="58" width="76" height="26" rx="5" fill="#cfe9ec" opacity=".3" stroke="#9fd4e0" stroke-width="3"/><rect x="20" y="42" width="46" height="26" fill="#e9fbff" opacity=".85" stroke="#8fc8d0" stroke-width="2.5"/><rect x="30" y="32" width="46" height="26" fill="#e9fbff" opacity=".7" stroke="#8fc8d0" stroke-width="2.5"/><rect x="40" y="22" width="46" height="26" fill="#e9fbff" opacity=".6" stroke="#8fc8d0" stroke-width="2.5"/>';
     else if (k === 'chamber') s = '<rect x="14" y="34" width="72" height="34" rx="4" fill="#9aa5ad"/><g stroke="#2b3338" stroke-width="2" fill="none"><rect x="30" y="40" width="16" height="22"/><rect x="54" y="40" width="16" height="22"/></g>';
     else if (k === 'chamberReady') s = '<rect x="14" y="38" width="72" height="34" rx="4" fill="#9aa5ad"/><rect x="26" y="30" width="48" height="28" rx="2" fill="#cfe9ec" opacity=".75" stroke="#8fc8d0" stroke-width="3"/>';
     else if (k === 'tube' || k === 'tubeStained') s = '<path d="M38 16 H62 V68 L50 86 L38 68 Z" fill="url(#gGlass)" stroke="#b7e6ea" stroke-width="3"/><path d="M40 48 H60 V66 L50 82 L40 66 Z" fill="' + (k === 'tube' ? '#58b862' : '#2f6fa8') + '"/><rect x="34" y="10" width="32" height="10" rx="3" fill="#e0483c"/>';
     else if (k === 'trypan') s = '<rect x="32" y="30" width="36" height="56" rx="6" fill="#1d4f8a"/><rect x="40" y="16" width="20" height="16" rx="3" fill="#222"/><rect x="36" y="50" width="28" height="22" rx="2" fill="#e9eef0"/><circle cx="50" cy="61" r="6" fill="#2a4fb8"/>';
     return '<svg viewBox="0 0 100 100">' + s + '</svg>';
+  };
+  /* 태그 고리: 모은 색 태그를 한 칸에 */
+  var TAGS = ['red', 'orange', 'green', 'blue', 'violet'];
+  var oldIco = A.ico;
+  A.ico = function (id, c) {
+    if (id !== 'tag_ring') return oldIco(id, c);
+    var have = TAGS.filter(function (k) { return c.st.inv.indexOf('tag_' + k) >= 0; }), s = '<circle cx="50" cy="46" r="26" fill="none" stroke="#c9d3d9" stroke-width="5"/>';
+    have.forEach(function (k, i) { var a = -2.4 + i * 0.95; s += '<g transform="translate(' + (50 + Math.cos(a) * 30) + ' ' + (46 + Math.sin(a) * 30 + 14) + ') rotate(' + (a * 57 + 90) + ')"><rect x="-9" y="-6" width="18" height="30" rx="5" fill="' + COL[k] + '" stroke="#fff" stroke-width="2"/></g>'; });
+    return '<svg viewBox="0 0 100 100">' + s + '</svg>';
+  };
+  A.tagRingBig = function (c) {
+    var s = '', P = c.P;
+    TAGS.forEach(function (k, i) {
+      var x = 20 + i * 100, has = c.st.inv.indexOf('tag_' + k) >= 0;
+      s += has ? '<path d="M' + x + ' 20 H' + (x + 62) + ' L' + (x + 86) + ' 60 L' + (x + 62) + ' 100 H' + x + ' Z" fill="' + COL[k] + '" stroke="#fff" stroke-width="4"/><circle cx="' + (x + 14) + '" cy="60" r="7" fill="#1c1611"/><text x="' + (x + 52) + '" y="76" font-size="52" font-weight="900" text-anchor="middle" fill="#fff" ' + F + '>' + P.tags[k] + '</text>' : '<path d="M' + x + ' 20 H' + (x + 62) + ' L' + (x + 86) + ' 60 L' + (x + 62) + ' 100 H' + x + ' Z" fill="none" stroke="#59646d" stroke-width="3" stroke-dasharray="6 6"/>';
+    });
+    return '<svg viewBox="0 0 520 120">' + s + '</svg>';
   };
   A.strainIcon = strainIcon; A.symbol = symbol; A.dirArrow = dirArrow; A.arrow = arrow; A.COL = COL; A.SYMKO = SYMKO; A.defs = defs;
 
