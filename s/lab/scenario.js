@@ -69,7 +69,8 @@
       w4: { kind: 'wall', name: '문', bg: { svg: 'bgDoor' }, props: ['pDoorFridge', 'pDoorClip', 'pDoorPanel'], hs: [
         { id: 'fridge', r: [0.06, 0.18, 0.28, 0.68], kind: 'zoom', to: 'z_fridge' },
         { id: 'clip', r: [0.35, 0.42, 0.15, 0.19], kind: 'zoom', to: 'z_clip' },
-        { id: 'door', r: [0.54, 0.14, 0.38, 0.72], kind: 'zoom', to: 'z_panel' }
+        { id: 'door', r: [0.54, 0.14, 0.38, 0.72], kind: 'zoom', to: 'z_panel' },
+        { id: 'pad', r: [0.60, 0.32, 0.12, 0.11], kind: 'zoom', to: 'z_panel' }
       ] },
 
       /* ---------------------------- 확대 장면 ---------------------------- */
@@ -175,11 +176,34 @@
         { text: '커버글라스+계수판, 시료+트립판 블루를 합쳐 현미경 스테이지에 올립니다.', hl: ['hs:w3.scope'] },
         { text: '네 칸의 초록(살아 있는) 세포만 세어 합계를 계수기에 맞추십시오. 파란 것은 제외합니다.', hl: ['hs:w3.scope'] }] },
       { id: 'pz_door', scenes: ['w4', 'z_panel', 'z_textbook'], solved: 'flag:door_open', avail: ['solved:count', 'solved:box', 'solved:fridge', 'solved:safe'], hints: [
-        { text: '문 옆 패널은 숫자 네 칸입니다. 색 태그 네 개의 숫자를 모으십시오.', hl: ['wall:w4', 'hs:w4.door'] },
+        { text: '문 옆 패널은 숫자 네 칸입니다. 색 태그 네 개의 숫자를 모으십시오.', hl: ['wall:w4', 'hs:w4.pad'] },
         { text: '교재의 규칙대로, 에너지가 큰 색부터 왼쪽에서 오른쪽으로 놓습니다. 보라 태그는 쓰지 않습니다.', hl: ['item:textbook', 'card:c_text'] },
         { text: function (P) { return '왼쪽부터 ' + P.code.split('').join(', ') + '입니다.'; }, hl: ['hs:w4.door'] }] }
     ]
   };
+
+  /* ---------------- 배경 그림(Gemini) 모드 ----------------
+   * ART_MODE = 'img' 이면 벽 4면이 s/lab/img/ 의 그림을 쓰고, 덧그림(props)·누르는 자리(r)도 그림 기준 좌표를 쓴다.
+   * 아래 한 줄을 'svg' 로 바꾸면 전부 예전 코드 그림으로 되돌아간다. 그림 한 장이 안 읽히면 그 벽만 코드 그림으로 대신한다(ui.js). */
+  var ART_MODE = 'img';
+  var IMG = {
+    w1: { src: 's/lab/img/w1_desk.webp', props: ['iDeskCal', 'iDeskBoard', 'iDeskMemo', 'iDeskPencil'],
+      r: { pencil: [0.17, 0.61, 0.25, 0.11], cal: [0.14, 0.24, 0.20, 0.27], board: [0.43, 0.27, 0.44, 0.27], memo: [0.42, 0.60, 0.17, 0.11], drawer: [0.65, 0.71, 0.30, 0.28], lamp: [0.72, 0.54, 0.16, 0.14] } },
+    w2: { src: 's/lab/img/w2_shelf.webp', props: ['iShelfWb', 'iShelfOld'],
+      r: { books: [0.09, 0.53, 0.40, 0.14], wb: [0.54, 0.24, 0.41, 0.23], old: [0.54, 0.49, 0.18, 0.21], safe: [0.73, 0.52, 0.23, 0.18] } },
+    w3: { src: 's/lab/img/w3_bench.webp', props: ['iBenchFlasks', 'iBenchItems'],
+      r: { shelf: [0.13, 0.33, 0.45, 0.18], scope: [0.69, 0.47, 0.20, 0.23], box: [0.13, 0.82, 0.28, 0.17], chamber: [0.34, 0.62, 0.15, 0.095], trypan: [0.22, 0.58, 0.11, 0.12], cover: [0.50, 0.62, 0.12, 0.095] } },
+    w4: { src: 's/lab/img/w4_door.webp', props: ['iDoorFridge', 'iDoorClip', 'iDoorPanel'],
+      r: { fridge: [0.06, 0.29, 0.34, 0.66], clip: [0.44, 0.32, 0.14, 0.19], door: [0.635, 0.24, 0.335, 0.67], pad: [0.485, 0.53, 0.145, 0.12] } }
+  };
+  /* 벽 하나를 'img' 또는 'svg' 모드로 맞춘다. 원본(코드 그림 기준)은 처음 한 번 보관한다. */
+  scn.setArt = function (wallId, mode) {
+    var sc = scn.scenes[wallId], im = IMG[wallId]; if (!sc || !im) return;
+    if (!sc._svg) { sc._svg = { bg: sc.bg, props: sc.props, r: {} }; sc.hs.forEach(function (h) { sc._svg.r[h.id] = h.r; }); }
+    if (mode === 'img') { sc.bg = { img: im.src }; sc.props = im.props; sc.hs.forEach(function (h) { if (im.r[h.id]) h.r = im.r[h.id]; }); sc.artImg = true; }
+    else { sc.bg = sc._svg.bg; sc.props = sc._svg.props; sc.hs.forEach(function (h) { if (sc._svg.r[h.id]) h.r = sc._svg.r[h.id]; }); sc.artImg = false; }
+  };
+  scn.walls.forEach(function (w) { scn.setArt(w, ART_MODE); });
 
   ESC.scenarios = ESC.scenarios || {}; ESC.scenarios.lab = scn;
   if (typeof module !== 'undefined' && module.exports) module.exports = scn;

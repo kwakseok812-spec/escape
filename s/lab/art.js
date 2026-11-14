@@ -201,6 +201,51 @@
     return s;
   };
 
+
+  /* ===================== 배경 그림(Gemini) 위에 얹는 층 — ART_MODE 'img' 용 (좌표는 그림 기준) =====================
+   * 그림에 없는 것(달력 숫자·쪽지·글·호수판·패널·줍는 물건)만 코드로 얹는다. 실사풍 그림에 겉돌지 않게
+   * 종이는 어두운 톤으로, 위에 약한 그늘(dim)과 오른쪽 위 비상등의 붉은 기운(glow)을 한 겹 덮는다. */
+  function dim(x, y, w, h, k) { return rect(x, y, w, h, '#06101a', 'rx="3" opacity="' + k + '"'); }
+  function glow(x, y, w, h, k) { return rect(x, y, w, h, '#ff6a3d', 'rx="3" opacity="' + k + '"'); }
+  function shadowE(cx, cy, rx) { return '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + Math.max(4, rx * 0.12) + '" fill="#000" opacity=".38"/>'; }
+  A.iDeskCal = function (c) { return calendar(c.P.cal, 121, 297, 145, 199, { paper: '#a3b2bf', head: '#3f5d7c' }) + dim(121, 297, 145, 199, 0.16); };
+  A.iDeskBoard = function (c) {
+    return paperNote(420, 318, 190, 150, -3, '#d8cc94') + consPic(c.P.arr.cons[0], 432, 342, 168).replace(/<text[^>]*>[^<]*<\/text>/g, '') + pin(514, 324, 0.6) + dim(420, 318, 190, 150, 0.12) + glow(420, 318, 190, 150, 0.06);
+  };
+  A.iDeskMemo = function (c) { return c.st.flags.note_rubbed ? '' : '<g stroke="#6f7480" stroke-width="1.5" opacity=".7"><path d="M372 652 H432 M370 658 H434"/></g>'; };
+  A.iDeskPencil = function (c) {
+    return c.st.flags.got_pencil ? '' : shadowE(236, 683, 54) + '<g transform="translate(184 668) rotate(-3)"><rect width="96" height="10" fill="#c99a3f" rx="3"/><path d="M96 0 L116 5 L96 10 Z" fill="#cdb08a"/><path d="M110 3 L116 5 L110 7 Z" fill="#222"/><rect width="14" height="10" fill="#b8352b" rx="3"/><rect y="0" width="116" height="4" fill="#fff" opacity=".12"/></g>';
+  };
+  A.iShelfWb = function (c) {
+    return paperNote(486, 282, 160, 100, 0, '#d4d5d9').replace(/<rect x="[^"]*" y="[^"]*" width="160" height="100" fill="#000"[^>]*\/>/, '') + consPic(c.P.arr.cons[1], 496, 292, 140).replace(/<text[^>]*>[^<]*<\/text>/g, '') + '<g stroke="#2c6ea8" stroke-width="4" fill="none" opacity=".6"><path d="M480 425 q40 -35 80 0 t80 0"/></g>' + dim(486, 282, 160, 100, 0.12) + glow(486, 282, 160, 100, 0.07);
+  };
+  A.iShelfOld = function (c) { return calendar(c.P.cal.old, 447, 537, 108, 156, { paper: '#b7b299', head: '#6f6448' }) + dim(447, 537, 108, 156, 0.14); };
+  A.iBenchFlasks = function (c) {
+    var s = '', P = c.P;
+    [152, 236, 320, 405].forEach(function (cx, i) {
+      if (c.st.flags.flasks_labeled) { s += rect(cx - 27, 397, 54, 36, '#d9d6c6', 'rx="4" opacity=".94"') + strainIcon(P.arr.ans[i], cx, 415, 12) + dim(cx - 27, 397, 54, 36, 0.1); }
+      if (i === P.arr.decoy) s += '<g transform="rotate(-8 ' + cx + ' 415)">' + rect(cx - 27, 401, 54, 28, '#e0963a', 'rx="4"') + txt(cx, 421, '기준', 17, '#3a2200', 'text-anchor="middle" font-weight="800"') + '</g>';
+    });
+    return s;
+  };
+  A.iBenchItems = function (c) {
+    var s = '';
+    if (!c.st.flags.got_trypan) s += shadowE(212, 686, 36) + '<g transform="translate(190 604) scale(.85)"><rect width="56" height="96" rx="9" fill="#1d4f8a"/><rect x="14" y="-14" width="28" height="20" fill="#222" rx="4"/><rect x="6" y="34" width="44" height="38" fill="#cfd8dc" rx="3"/><circle cx="28" cy="53" r="9" fill="#2a4fb8"/><rect width="56" height="96" rx="9" fill="#fff" opacity=".06"/></g>';
+    if (!c.st.flags.got_chamber) s += shadowE(332, 692, 56) + '<g transform="translate(278 642) scale(.92)"><rect width="108" height="52" rx="8" fill="#23303a"/><rect x="10" y="12" width="88" height="26" fill="#8e99a3" rx="3"/><g stroke="#2b3338" stroke-width="2" fill="none"><rect x="24" y="16" width="20" height="18"/><rect x="60" y="16" width="20" height="18"/></g></g>';
+    if (!c.st.flags.got_coverslip) s += shadowE(452, 690, 50) + '<g transform="translate(404 632) scale(.9)"><rect width="96" height="62" rx="6" fill="#cfe9ec" opacity=".35" stroke="#9fd4e0" stroke-width="3"/><rect x="12" y="22" width="52" height="30" fill="#e9fbff" opacity=".7" stroke="#8fc8d0" stroke-width="2"/><rect x="22" y="14" width="52" height="30" fill="#e9fbff" opacity=".55" stroke="#8fc8d0" stroke-width="2"/><rect x="32" y="6" width="52" height="30" fill="#e9fbff" opacity=".45" stroke="#8fc8d0" stroke-width="2"/></g>';
+    return s;
+  };
+  A.iDoorFridge = function (c) {
+    return rect(137, 436, 73, 40, '#c4cbd2', 'rx="2"') + txt(173, 464, c.P.dial.no + '호기', 24, '#23282c', 'text-anchor="middle" font-weight="800"') + '<path d="M172 383 L185 370" stroke="#d8392c" stroke-width="5" stroke-linecap="round"/><circle cx="172" cy="383" r="3.5" fill="#222"/>';
+  };
+  A.iDoorClip = function (c) { return rect(368, 380, 84, 110, '#b9b5a2', 'rx="2"') + '<g stroke="#6a6652" stroke-width="3"><path d="M376 404 H444 M376 424 H444 M376 444 H444 M376 464 H444"/></g>' + dim(368, 380, 84, 110, 0.12) + glow(368, 380, 84, 110, 0.05); };
+  A.iDoorPanel = function (c) {
+    var open = c.st.flags.door_open, s = rect(415, 541, 64, 94, '#141a1f', 'rx="5" stroke="#59646d" stroke-width="3"');
+    s += '<circle cx="447" cy="561" r="7" fill="' + (open ? '#4fe08a' : '#d8392c') + '"/><circle cx="447" cy="561" r="12" fill="' + (open ? '#4fe08a' : '#d8392c') + '" opacity=".18"/>' + '<g fill="#59646d">' + [0, 1, 2, 3].map(function (i) { return '<rect x="' + (421 + i * 14) + '" y="592" width="11" height="28" rx="2.5"/>'; }).join('') + '</g>';
+    if (open) s += '<rect x="520" y="262" width="232" height="640" fill="#fff4c8" opacity=".5"/>';
+    return s;
+  };
+
   /* ===================== 확대 장면 ===================== */
   A.zCal = function (c) {
     var s = zbg() + calendar(c.P.cal, 90, 60, 620, 560, {}) + '<g transform="translate(0 640)">' + ringIcon(150, 40, 22) + txt(190, 50, '발표', 30, '#f3e9d8', 'font-weight="700"') + sqIcon(390, 40, 20) + txt(428, 50, '마감', 30, '#f3e9d8', 'font-weight="700"') + pin(590, 36, 1) + txt(620, 50, '오늘', 30, '#f3e9d8', 'font-weight="700"') + '</g>';

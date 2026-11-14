@@ -47,7 +47,7 @@
 
   /* ---------------- 장면 그리기 ---------------- */
   function wallSvg(id) {
-    var sc = scn.scenes[id], bg = sc.bg.img ? '<image href="' + sc.bg.img + '" x="0" y="0" width="800" height="1000" preserveAspectRatio="xMidYMid slice"/>' : art[sc.bg.svg](core);
+    var sc = scn.scenes[id], bg = sc.bg.img ? '<rect width="800" height="1000" fill="#10171b"/><image href="' + sc.bg.img + '" x="0" y="0" width="800" height="1000" preserveAspectRatio="xMidYMid slice"/>' : art[sc.bg.svg](core);
     var props = (sc.props || []).map(function (p) { return art[p](core); }).join('');
     return '<svg viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid meet">' + bg + props + '</svg>';
   }
@@ -424,6 +424,22 @@
   $('navL').innerHTML = ICON.left; $('navR').innerHTML = ICON.right; $('zclose').innerHTML = ICON.close; $('nbClose').innerHTML = ICON.close; $('hintClose').innerHTML = ICON.close;
   fitView();
   var seedParam = (location.search.match(/[?&]seed=(\d+)/) || [])[1];
-  startGame(seedParam ? +seedParam : 0);
-  window.__escape = { get core() { return core; }, get zoomId() { return zoomId; }, startGame: startGame, openZoom: openZoom, closeZoom: closeZoom, flush: flush, get ended() { return ended; }, renderAll: renderAll };
+  /* 벽 그림 읽기: 다 읽거나(최대 4초) 실패가 정해진 뒤에 시작한다. 한 장이 안 읽히면 그 벽만 코드 그림으로 대신한다. */
+  function preloadWalls(done) {
+    var list = scn.walls.filter(function (w) { return scn.scenes[w].artImg; }), left = list.length, fin = false;
+    function end() { if (!fin) { fin = true; done(); } }
+    if (!left) return end();
+    setTimeout(end, 4000);
+    list.forEach(function (w) {
+      var im = new Image();
+      im.onload = function () { if (--left === 0) end(); };
+      im.onerror = function () { scn.setArt(w, 'svg'); if (core) renderAll(); if (--left === 0) end(); };
+      im.src = scn.scenes[w].bg.img;
+    });
+  }
+  preloadWalls(function () {
+    var boot = $('boot'); if (boot) boot.remove();
+    startGame(seedParam ? +seedParam : 0);
+    window.__escape = { get core() { return core; }, get zoomId() { return zoomId; }, startGame: startGame, openZoom: openZoom, closeZoom: closeZoom, flush: flush, get ended() { return ended; }, renderAll: renderAll };
+  });
 })();
