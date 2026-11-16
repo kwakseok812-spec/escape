@@ -170,7 +170,7 @@
         { text: '손전등 본체와 건전지를 합치십시오.', hl: ['item:flashlight_body', 'item:battery'] }] },
       { id: 'pz_arr', scenes: ['w3', 'w1', 'w2', 'z_shelf', 'z_board', 'z_wb'], solved: 'solved:shelf', avail: [], hints: [
         { text: '선반의 병 네 개와, 세 곳(게시판·화이트보드·선반 옆)의 그림 쪽지를 모으십시오.', hl: ['card:c_nA', 'card:c_nB', 'card:c_shelf'] },
-        { text: '세 쪽지(양 끝이 아님·왼쪽에 있음·바로 옆)를 모두 지키는 배열은 하나뿐이니, 선반 네 칸에 균주를 놓아 가며 세 쪽지가 모두 맞는지 확인하십시오.', hl: ['card:c_nA', 'card:c_nB', 'card:c_shelf'] },
+        { text: '세 쪽지를 모두 지키는 배열은 하나뿐이니, 선반 네 칸에 균주를 놓아 가며 세 쪽지가 모두 맞는지 확인하십시오.', hl: ['card:c_nA', 'card:c_nB', 'card:c_shelf'] },
         { text: function (P) { return '왼쪽부터 ' + P.arr.ans.map(strainKo).join(', ') + '입니다.'; }, hl: ['hs:w3.shelf'] }] },
       { id: 'pz_star', scenes: ['w3', 'z_shelf', 'z_box', 'z_strain'], solved: 'solved:box', avail: ['solved:shelf', 'has:flashlight'], hints: [
         { text: '손전등의 보라색 빛 모드로 선반 병을 비춰 보십시오.', hl: ['item:flashlight', 'hs:w3.shelf'] },

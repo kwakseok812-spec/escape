@@ -526,8 +526,8 @@
   /* 잠금 자리 이름표 그림(쉬움 전체 · 서랍은 보통도). span = 차지하는 칸 수. 칸 폭에 맞춰 늘어나는 한 줄 그림 */
   A.labIcon = function (ic, span) {
     var W = 60 * (span || 1), g = '', m = ic.match(/^n(\d)$/), PA = '#f3e9d8';
-    if (ic === 'footRing') g = ringIcon(28, 20, 11) + foot(70, 24, 0.7, PA, -12) + foot(96, 15, 0.7, PA, 12);
-    else if (ic === 'footSq') g = sqIcon(28, 20, 10) + foot(70, 24, 0.7, PA, -12) + foot(96, 15, 0.7, PA, 12);
+    if (ic === 'footRing') g = ringIcon(26, 20, 11) + foot(78, 20, 0.8, PA, 0);
+    else if (ic === 'footSq') g = sqIcon(26, 20, 10) + foot(78, 20, 0.8, PA, 0);
     else if (m) g = '<circle cx="30" cy="20" r="15" fill="' + PA + '"/>' + txt(30, 28, m[1], 22, '#2a1f14', 'text-anchor="middle" font-weight="900"');
     else if (ic === 'dotL' || ic === 'dotM' || ic === 'dotS') g = rect(12, 4, 36, 32, '#fff6b8', 'rx="5"') + '<circle cx="30" cy="20" r="' + { dotL: 12, dotM: 8, dotS: 4.5 }[ic] + '" fill="#3a3a3a" opacity="' + { dotL: 1, dotM: 0.7, dotS: 0.45 }[ic] + '"/>';
     else if (ic === 'flowR') g = arrow(14, 20, 226, 20, PA, 4) + [30, 85, 140, 195].map(function (x) { return '<circle cx="' + x + '" cy="20" r="5" fill="' + PA + '"/>'; }).join('');
