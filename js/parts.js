@@ -47,6 +47,12 @@
     return pad2(a) + pad2(b);                                     // 나란히 붙여 쓴다
   }
 
+  /* 달력 칸 기하(그림과 누르는 자리가 같은 값을 쓴다): x,y,w,h 안의 칸 — d일의 칸 사각형. 읽는 순서(왼→오, 위→아래)가 곧 칸 순서 */
+  function calGeom(c, x, y, w, h) {
+    var rows = Math.ceil((c.first + c.dim) / 7), hh = h * 0.16, top = y + hh + h * 0.07, cw = w / 7, ch = (h - (top - y) - h * 0.02) / rows;
+    return { rows: rows, hh: hh, top: top, cw: cw, ch: ch, cell: function (d) { var idx = c.first + d - 1, col = idx % 7, row = Math.floor(idx / 7); return { x: x + cw * col, y: top + ch * row, w: cw, h: ch, cx: x + cw * (col + 0.5), cy: top + ch * (row + 0.5) }; } };
+  }
+
   /* ---------- 2. 배열 논리: 균주 4종을 선반 1~4번에 ---------- */
   function perms(a) { if (a.length <= 1) return [a.slice()]; var out = []; for (var i = 0; i < a.length; i++) { var rest = a.slice(0, i).concat(a.slice(i + 1)); perms(rest).forEach(function (p) { out.push([a[i]].concat(p)); }); } return out; }
   function satisfies(p, c) {
@@ -158,7 +164,7 @@
       dialAns: solveDial(dial), boxCode: String(arr.star + 1) + String(green) };
   }
 
-  ESC.parts = { mulberry32: mulberry32, RNG: RNG, pad2: pad2, STRAINS: STRAINS, DIM: DIM, DIRS: DIRS, ENERGY_ORDER: ENERGY_ORDER,
+  ESC.parts = { calGeom: calGeom, mulberry32: mulberry32, RNG: RNG, pad2: pad2, STRAINS: STRAINS, DIM: DIM, DIRS: DIRS, ENERGY_ORDER: ENERGY_ORDER,
     monthInfo: monthInfo, genCalendar: genCalendar, solveCalendar: solveCalendar, genArrangement: genArrangement, solveArrangement: solveArrangement, satisfies: satisfies, perms: perms,
     genDirection: genDirection, solveDirection: solveDirection, BANDS: BANDS, CORNERS: CORNERS, CELL_R: CELL_R, genSymbols: genSymbols, solveSymbols: solveSymbols, genCounting: genCounting, solveCounting: solveCounting,
     genDial: genDial, solveDial: solveDial, genTags: genTags, finalCode: finalCode, buildLab: buildLab };

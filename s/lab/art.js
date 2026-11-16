@@ -69,14 +69,18 @@
   /* 달력 그림(실제 요일 배열) — x,y,w,h 안에 그린다 */
   function calendar(c, x, y, w, h, opt) {
     opt = opt || {};
-    var rows = Math.ceil((c.first + c.dim) / 7), hh = h * 0.16, top = y + hh + h * 0.07, cw = w / 7, ch = (h - (top - y) - h * 0.02) / rows, s = '';
+    var g = ESC.parts.calGeom(c, x, y, w, h), hh = g.hh, cw = g.cw, ch = g.ch, s = '';
+    var nsz = Math.min(cw, ch) * (opt.easyDim ? 0.30 : (opt.fix ? 0.36 : 0.46));      // 보통 고침: 숫자를 조금 줄여 칸 격자가 먼저 보이게 / 쉬움: 더 흐리고 작게
+    var tgt = opt.paint === 'circle' ? c.circle : (opt.paint === 'square' ? c.square : null);
     s += rect(x, y, w, h, opt.paper || '#f3f0e6', 'rx="6" stroke="#b8b09c" stroke-width="2"') + rect(x, y, w, hh, opt.head || '#4a6a8a', 'rx="6"');
     s += txt(x + w / 2, y + hh * 0.72, (c.month + 1) + '월', hh * 0.6, '#fff', 'text-anchor="middle" font-weight="800"');
     for (var i = 0; i < 7; i++) s += txt(x + cw * (i + 0.5), y + hh + h * 0.055, WD[i], h * 0.05, i === 0 ? '#c0392b' : (i === 6 ? '#2c6ea8' : '#5a5448'), 'text-anchor="middle" font-weight="700"');
     var xs = {}; (c.xs || []).forEach(function (d) { xs[d] = 1; });
     for (var d = 1; d <= c.dim; d++) {
-      var idx = c.first + d - 1, col = idx % 7, row = Math.floor(idx / 7), cx = x + cw * (col + 0.5), cy = top + ch * (row + 0.5);
-      s += txt(cx, cy + h * 0.022, d, Math.min(cw, ch) * 0.46, col === 0 ? '#c0392b' : (col === 6 ? '#2c6ea8' : '#3a362e'), 'text-anchor="middle" font-weight="700"');
+      var q = g.cell(d), col = (c.first + d - 1) % 7, cx = q.cx, cy = q.cy;
+      if (opt.fix) s += rect(q.x + 1, q.y + 1, cw - 2, ch - 2, 'none', 'stroke="#b8b09c" stroke-width="2" rx="3"');
+      if (tgt && d > c.pin && d <= tgt) s += rect(q.x + 2.5, q.y + 2.5, cw - 5, ch - 5, '#ffd54a', 'rx="4" opacity=".78" data-paint="1"');
+      s += txt(cx, cy + h * 0.022, d, nsz, col === 0 ? '#c0392b' : (col === 6 ? '#2c6ea8' : '#3a362e'), 'text-anchor="middle" font-weight="700"' + (opt.easyDim ? ' fill-opacity=".4"' : ''));
       if (xs[d]) s += '<path d="M' + (cx - cw * 0.32) + ' ' + (cy - ch * 0.32) + ' L' + (cx + cw * 0.32) + ' ' + (cy + ch * 0.32) + ' M' + (cx + cw * 0.32) + ' ' + (cy - ch * 0.32) + ' L' + (cx - cw * 0.32) + ' ' + (cy + ch * 0.32) + '" stroke="#3a362e" stroke-width="' + Math.max(2, cw * 0.06) + '" stroke-linecap="round" opacity=".75"/>';
       if (c.circle === d) s += ringIcon(cx, cy, Math.min(cw, ch) * 0.46);
       if (c.square === d) s += sqIcon(cx, cy, Math.min(cw, ch) * 0.42);
@@ -107,6 +111,16 @@
     return s;
   }
   function paperNote(x, y, w, h, rot, fill) { return '<g transform="rotate(' + (rot || 0) + ' ' + (x + w / 2) + ' ' + (y + h / 2) + ')"><rect x="' + (x + 4) + '" y="' + (y + 6) + '" width="' + w + '" height="' + h + '" fill="#000" opacity=".3" rx="4"/>' + rect(x, y, w, h, fill || '#fff6b8', 'rx="4"') + '</g>'; }
+
+  /* ---- 난이도·기능 스위치 읽기: 그림은 난이도를 「보이는 것」에만 쓰고 정답·잠금값은 읽지 않는다 ---- */
+  function isFix(c) { return !!(c && c.scn && c.scn.features && c.scn.features.normalFixes); }
+  function ez(c) { return !!(c && c.diff && c.diff() === 'easy'); }
+  function copt(c, o) { o = o || {}; o.fix = isFix(c); if (ez(c) && !o.old) o.easyDim = true; return o; }
+  function numChip(cx, cy, n, r) { return '<g data-ref="numchip"><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="#f3e9d8" stroke="#2a1f14" stroke-width="3"/>' + txt(cx, cy + r * 0.38, n, r * 1.2, '#2a1f14', 'text-anchor="middle" font-weight="900"') + '</g>'; }
+  function foot(cx, cy, k, col, rot) { return '<g transform="translate(' + cx + ' ' + cy + ') rotate(' + (rot || 0) + ') scale(' + k + ')" fill="' + col + '"><ellipse cx="0" cy="-4" rx="7" ry="10"/><ellipse cx="0" cy="12" rx="5" ry="5.5"/><circle cx="-5" cy="-17" r="2.4"/><circle cx="0" cy="-19" r="2.6"/><circle cx="5" cy="-17" r="2.4"/></g>'; }
+  function bolt(cx, cy, sc, fill) { return '<path transform="translate(' + cx + ' ' + cy + ') scale(' + sc + ')" d="M-14 24 L6 -26 L10 -4 L26 -4 L-6 32 L-2 8 Z" fill="' + fill + '"/>'; }
+  function flaskIcon(cx, cy, k) { return '<g transform="translate(' + cx + ' ' + cy + ') scale(' + k + ')"><path d="M-8 -24 V-6 L-22 22 H22 L8 -6 V-24 Z" fill="#cfe9ec" fill-opacity=".5" stroke="#6aa0aa" stroke-width="3"/><path d="M-17 8 L-22 22 H22 L17 8 Z" fill="#4fae5a"/></g>'; }
+  function bookIcon(cx, cy, k) { return '<g transform="translate(' + cx + ' ' + cy + ') scale(' + k + ')"><rect x="-18" y="-24" width="36" height="48" rx="4" fill="#2a4a6a"/><rect x="-18" y="-10" width="36" height="12" fill="#2b6fe0"/><circle cx="0" cy="12" r="7" fill="#f3e9d8"/></g>'; }
   function zbg() { return rect(0, 0, 800, 800, 'url(#gZ)'); }
   function zfin() { return '<rect width="800" height="800" fill="url(#gVig)" opacity=".7"/>'; }
 
@@ -165,20 +179,21 @@
   };
 
   /* ===================== 벽 위에 얹는 층 ===================== */
-  A.pDeskCal = function (c) { return calendar(c.P.cal, 118, 136, 164, 284, { head: '#4a6a8a' }); };
+  A.pDeskCal = function (c) { return calendar(c.P.cal, 118, 136, 164, 284, copt(c, { head: '#4a6a8a' })); };
   A.pDeskBoard = function (c) {
     return paperNote(380, 190, 190, 150, -3, '#fff6b8') + consPic(c.P.arr.cons[0], 392, 214, 168).replace(/<text[^>]*>[^<]*<\/text>/g, '') + pin(474, 196, 0.6);
   };
   A.pDeskMemo = function (c) { return c.st.flags.note_rubbed ? '' : '<g stroke="#bdb79c" stroke-width="1.5" opacity=".7"><path d="M312 536 H428 M312 546 H428"/></g>'; };
   A.pDeskPencil = function (c) { return c.st.flags.got_pencil ? '' : '<g transform="translate(116 506) rotate(-12)"><rect width="96" height="10" fill="#e3b04b" rx="3"/><path d="M96 0 L116 5 L96 10 Z" fill="#e8c9a0"/><path d="M110 3 L116 5 L110 7 Z" fill="#333"/><rect width="14" height="10" fill="#d8392c" rx="3"/></g>'; };
   A.pShelfWb = function (c) { return paperNote(586, 130, 160, 100, 0, '#ffffff').replace(/<rect x="[^"]*" y="[^"]*" width="160" height="100" fill="#000"[^>]*\/>/, '') + consPic(c.P.arr.cons[1], 596, 140, 140).replace(/<text[^>]*>[^<]*<\/text>/g, '') + '<g stroke="#2c6ea8" stroke-width="4" fill="none" opacity=".7"><path d="M600 300 q40 -40 80 0 t80 0"/></g>'; };
-  A.pShelfOld = function (c) { return calendar(c.P.cal.old, 472, 454, 142, 182, { paper: '#e6dcb8', head: '#8a7a5a' }); };
+  A.pShelfOld = function (c) { return calendar(c.P.cal.old, 472, 454, 142, 182, copt(c, { paper: '#e6dcb8', head: '#8a7a5a', old: true })); };
   A.pBenchFlasks = function (c) {
     var s = '', P = c.P;
     for (var i = 0; i < 4; i++) {
       var cx = 128 + i * 96;
       if (c.st.flags.flasks_labeled) { s += rect(cx - 30, 352, 60, 38, '#fffdf2', 'rx="4"') + strainIcon(P.arr.ans[i], cx, 371, 13); }
       if (i === P.arr.decoy) s += '<g transform="rotate(-8 ' + cx + ' 372)">' + rect(cx - 28, 356, 56, 28, '#ffb347', 'rx="4"') + txt(cx, 376, '기준', 17, '#4a2a00', 'text-anchor="middle" font-weight="800"') + '</g>';
+      if (ez(c)) s += numChip(cx, 468, i + 1, 14);
     }
     return s;
   };
@@ -208,7 +223,7 @@
   function dim(x, y, w, h, k) { return rect(x, y, w, h, '#06101a', 'rx="3" opacity="' + k + '"'); }
   function glow(x, y, w, h, k) { return rect(x, y, w, h, '#ff6a3d', 'rx="3" opacity="' + k + '"'); }
   function shadowE(cx, cy, rx) { return '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + Math.max(4, rx * 0.12) + '" fill="#000" opacity=".38"/>'; }
-  A.iDeskCal = function (c) { return calendar(c.P.cal, 121, 297, 145, 199, { paper: '#a3b2bf', head: '#3f5d7c' }) + dim(121, 297, 145, 199, 0.16); };
+  A.iDeskCal = function (c) { return calendar(c.P.cal, 121, 297, 145, 199, copt(c, { paper: '#a3b2bf', head: '#3f5d7c' })) + dim(121, 297, 145, 199, 0.16); };
   A.iDeskBoard = function (c) {
     return paperNote(420, 318, 190, 150, -3, '#d8cc94') + consPic(c.P.arr.cons[0], 432, 342, 168).replace(/<text[^>]*>[^<]*<\/text>/g, '') + pin(514, 324, 0.6) + dim(420, 318, 190, 150, 0.12) + glow(420, 318, 190, 150, 0.06);
   };
@@ -219,12 +234,13 @@
   A.iShelfWb = function (c) {
     return paperNote(486, 282, 160, 100, 0, '#d4d5d9').replace(/<rect x="[^"]*" y="[^"]*" width="160" height="100" fill="#000"[^>]*\/>/, '') + consPic(c.P.arr.cons[1], 496, 292, 140).replace(/<text[^>]*>[^<]*<\/text>/g, '') + '<g stroke="#2c6ea8" stroke-width="4" fill="none" opacity=".6"><path d="M480 425 q40 -35 80 0 t80 0"/></g>' + dim(486, 282, 160, 100, 0.12) + glow(486, 282, 160, 100, 0.07);
   };
-  A.iShelfOld = function (c) { return calendar(c.P.cal.old, 447, 537, 108, 156, { paper: '#b7b299', head: '#6f6448' }) + dim(447, 537, 108, 156, 0.14); };
+  A.iShelfOld = function (c) { return calendar(c.P.cal.old, 447, 537, 108, 156, copt(c, { paper: '#b7b299', head: '#6f6448', old: true })) + dim(447, 537, 108, 156, 0.14); };
   A.iBenchFlasks = function (c) {
     var s = '', P = c.P;
     [152, 236, 320, 405].forEach(function (cx, i) {
       if (c.st.flags.flasks_labeled) { s += rect(cx - 27, 397, 54, 36, '#d9d6c6', 'rx="4" opacity=".94"') + strainIcon(P.arr.ans[i], cx, 415, 12) + dim(cx - 27, 397, 54, 36, 0.1); }
       if (i === P.arr.decoy) s += '<g transform="rotate(-8 ' + cx + ' 415)">' + rect(cx - 27, 401, 54, 28, '#e0963a', 'rx="4"') + txt(cx, 421, '기준', 17, '#3a2200', 'text-anchor="middle" font-weight="800"') + '</g>';
+      if (ez(c)) s += numChip(cx, 474, i + 1, 14);
     });
     return s;
   };
@@ -248,12 +264,49 @@
 
   /* ===================== 확대 장면 ===================== */
   A.zCal = function (c) {
-    var s = zbg() + calendar(c.P.cal, 90, 60, 620, 560, {}) + '<g transform="translate(0 640)">' + ringIcon(150, 40, 22) + txt(190, 50, '발표', 30, '#f3e9d8', 'font-weight="700"') + sqIcon(390, 40, 20) + txt(428, 50, '마감', 30, '#f3e9d8', 'font-weight="700"') + pin(590, 36, 1) + txt(620, 50, '오늘', 30, '#f3e9d8', 'font-weight="700"') + '</g>';
+    var easy = ez(c), pt = easy ? (c.view && c.view.calPaint) : null;
+    var s = zbg() + calendar(c.P.cal, 90, 60, 620, 560, copt(c, { paint: pt })) + '<g transform="translate(0 640)">';
+    if (pt === 'circle') s += rect(104, -4, 224, 112, '#ffd54a', 'rx="16" opacity=".4"'); else if (pt === 'square') s += rect(352, -4, 160, 112, '#ffd54a', 'rx="16" opacity=".4"');
+    s += ringIcon(150, 40, 22) + txt(190, 50, '발표', 30, '#f3e9d8', 'font-weight="700"') + sqIcon(390, 40, 20) + txt(428, 50, '마감', 30, '#f3e9d8', 'font-weight="700"') + pin(590, 36, 1) + txt(620, 50, '오늘', 30, '#f3e9d8', 'font-weight="700"') + '</g>';
     return s + zfin();
   };
+  /* 메모 예시(발표까지 2칸·마감까지 5칸). 실제 판에서는 발표까지 3~9칸이라 이 값은 정답이 될 수 없다(검사기가 확인) */
+  A.NOTE_EX = { a: 2, b: 5 };
   A.zNote = function (c) {
     var s = zbg() + paperNote(90, 70, 620, 650, -1, '#f4efdc'), rub = c.st.flags.note_rubbed;
     if (!rub) { s += '<g stroke="#d8d2bc" stroke-width="3" opacity=".7">' + Array.apply(null, Array(14)).map(function (_, i) { return '<path d="M120 ' + (140 + i * 38) + ' q' + (60 + (i * 17) % 40) + ' ' + (-8 + (i * 13) % 16) + ' ' + (200 + (i * 31) % 160) + ' 0"/>'; }).join('') + '</g>' + txt(400, 700, '눌린 자국이 있는 것 같습니다', 26, '#8a8470', 'text-anchor="middle"'); return s + zfin(); }
+    if (!isFix(c)) return zNoteOld(c, s);
+    var ink = '#3a3a3a', EX = A.NOTE_EX;
+    // 위: 발표(○)→두 칸, 마감(□)→두 칸
+    s += '<g stroke="' + ink + '" stroke-width="5" fill="none" opacity=".85">';
+    s += ringIcon(170, 140, 34).replace('#e0483c', ink) + arrow(232, 140, 296, 140, ink, 5) + rect(330, 102, 80, 76, 'none', 'stroke="' + ink + '" stroke-width="5" rx="6"') + rect(420, 102, 80, 76, 'none', 'stroke="' + ink + '" stroke-width="5" rx="6"');
+    s += sqIcon(170, 232, 32).replace('#4f9cf0', ink) + arrow(232, 232, 296, 232, ink, 5) + rect(330, 194, 80, 76, 'none', 'stroke="' + ink + '" stroke-width="5" rx="6"') + rect(420, 194, 80, 76, 'none', 'stroke="' + ink + '" stroke-width="5" rx="6"');
+    s += '<path d="M210 286 Q400 330 590 286"/></g>';
+    [0, 1, 2, 3].forEach(function (i) { s += rect(160 + i * 108, 326, 90, 84, i < 2 ? '#f9d9d4' : '#d6e6fa', 'rx="8" stroke="' + ink + '" stroke-width="5"'); });
+    s += '<g transform="translate(640 372)" stroke="' + ink + '" stroke-width="6" fill="none"><rect x="-26" y="-6" width="52" height="42" rx="6"/><path d="M-14 -6 V-24 a14 14 0 0 1 28 0 V-6"/></g>';
+    // 아래: 「예」 — 달력 한 줄에서 칸을 세는 법 (날짜 숫자는 ✕, 압정 다음 칸부터 발자국 번호)
+    s += rect(110, 432, 580, 272, '#fbf7e6', 'rx="14" stroke="#b8b09c" stroke-width="3" stroke-dasharray="8 6"') + rect(124, 424, 54, 34, '#e3b04b', 'rx="10"') + txt(151, 449, '예', 24, '#2a1c08', 'text-anchor="middle" font-weight="900"');
+    var X0 = 134, CW = 76, Y0 = 486, CH = 56, ccx = function (i) { return X0 + CW * (i + 0.5); }, i;
+    for (i = 0; i < 7; i++) s += rect(X0 + CW * i + 1, Y0, CW - 2, CH, '#fffdf2', 'rx="4" stroke="#b8b09c" stroke-width="2.5"');
+    s += pin(ccx(0) + 12, Y0 + 20, 0.9) + ringIcon(ccx(EX.a), Y0 + CH / 2, 21) + sqIcon(ccx(EX.b), Y0 + CH / 2, 19);
+    [EX.a, EX.b].forEach(function (k, j) {   // 날짜 숫자 말풍선에 ✕: 이 숫자를 쓰는 게 아님
+      var bx = ccx(k) - 28;
+      s += '<g data-ref="notex"><rect x="' + bx + '" y="444" width="56" height="30" rx="8" fill="#fff" stroke="#9a948a" stroke-width="2"/>' + txt(bx + 28, 467, 12 + k * 1 + 2, 21, '#8a8470', 'text-anchor="middle" font-weight="700"') + '<path d="M' + (bx + 6) + ' 449 L' + (bx + 50) + ' 470 M' + (bx + 50) + ' 449 L' + (bx + 6) + ' 470" stroke="#d8392c" stroke-width="4" stroke-linecap="round"/></g>';
+    });
+    for (i = 1; i <= 5; i++) {   // 발자국 번호: 한 칸 = 한 발자국
+      var hot = i === EX.a ? '#f9d9d4' : (i === EX.b ? '#d6e6fa' : '#fff'), edge = i === EX.a ? '#d8392c' : (i === EX.b ? '#2c6ea8' : '#8a8470');
+      s += '<path d="M' + ccx(i) + ' ' + (Y0 + CH + 2) + ' V' + (Y0 + CH + 18) + '" stroke="' + edge + '" stroke-width="3" stroke-dasharray="3 4"/>';
+      s += '<ellipse cx="' + ccx(i) + '" cy="' + (Y0 + CH + 40) + '" rx="19" ry="21" fill="' + hot + '" stroke="' + edge + '" stroke-width="3.5" stroke-dasharray="' + (hot === '#fff' ? '5 4' : '0') + '"/>' + foot(ccx(i), Y0 + CH + 25, 0.34, edge, 0) + txt(ccx(i), Y0 + CH + 50, i, 21, '#2a1f14', 'text-anchor="middle" font-weight="900"');
+    }
+    // 결과: 두 칸씩 붙여 쓴다 — 한 자리 수는 앞에 0 (2 → 02, 5 → 05)
+    var digs = ['0', String(EX.a), '0', String(EX.b)], sx = [237, 317, 397, 477], sy = 612;
+    digs.forEach(function (d, k) { s += rect(sx[k], sy, 70, 56, k < 2 ? '#f9d9d4' : '#d6e6fa', 'rx="8" stroke="' + ink + '" stroke-width="4"' + (d === '0' ? ' data-ref="lead0"' : '')) + txt(sx[k] + 35, sy + 42, d, 38, d === '0' ? '#9a948a' : ink, 'text-anchor="middle" font-weight="900"'); });
+    s += '<path d="M' + ccx(EX.a) + ' ' + (Y0 + CH + 64) + ' V' + (sy - 10) + ' H' + (sx[0] + 75) + ' V' + (sy - 2) + '" stroke="#d8392c" stroke-width="3.5" fill="none"/><path d="M' + ccx(EX.b) + ' ' + (Y0 + CH + 64) + ' V' + (sy - 10) + ' H' + (sx[2] + 75) + ' V' + (sy - 2) + '" stroke="#2c6ea8" stroke-width="3.5" fill="none"/>';
+    s += txt(400, 696, '두 칸씩 · 한 자리 수는 앞에 0', 22, '#6a6454', 'text-anchor="middle" font-weight="700"');
+    return s + zfin();
+  };
+  /* 옛 그림(기능 스위치 normalFixes 가 꺼졌을 때) */
+  function zNoteOld(c, s) {
     s += '<g stroke="#3a3a3a" stroke-width="5" fill="none" opacity=".85">';
     s += ringIcon(170, 190, 36).replace('#e0483c', '#3a3a3a') + arrow(235, 190, 300, 190, '#3a3a3a', 5) + rect(330, 150, 80, 80, 'none', 'stroke="#3a3a3a" stroke-width="5" rx="6"') + rect(420, 150, 80, 80, 'none', 'stroke="#3a3a3a" stroke-width="5" rx="6"');
     s += sqIcon(170, 330, 34).replace('#4f9cf0', '#3a3a3a') + arrow(235, 330, 300, 330, '#3a3a3a', 5) + rect(330, 290, 80, 80, 'none', 'stroke="#3a3a3a" stroke-width="5" rx="6"') + rect(420, 290, 80, 80, 'none', 'stroke="#3a3a3a" stroke-width="5" rx="6"');
@@ -263,7 +316,7 @@
     s += '<g transform="translate(610 545)" stroke="#3a3a3a" stroke-width="6" fill="none"><rect x="-26" y="-6" width="52" height="42" rx="6"/><path d="M-14 -6 V-24 a14 14 0 0 1 28 0 V-6"/></g>';
     s += '<g transform="translate(0 640)">' + pin(170, 26, 0.9) + arrow(205, 30, 290, 30, '#3a3a3a', 5) + rect(300, 4, 54, 54, 'none', 'stroke="#3a3a3a" stroke-width="5" rx="6"') + txt(327, 44, '1', 34, '#3a3a3a', 'text-anchor="middle" font-weight="800"') + '</g>';
     return s + zfin();
-  };
+  }
   A.zBoard = function (c) {
     var s = zbg() + rect(50, 60, 700, 680, '#2a1f14', 'rx="14"') + rect(66, 76, 668, 648, '#a37a4a', 'rx="8"');
     for (var i = 0; i < 120; i++) s += '<circle cx="' + (80 + (i * 61) % 640) + '" cy="' + (90 + (i * 43) % 620) + '" r="4" fill="#8b6538" opacity=".55"/>';
@@ -279,8 +332,14 @@
     // 책 읽는 규칙: 띠 색 ✓ 만 읽고, 번호 작은 것부터
     s += '<g transform="translate(560 160)">' + rect(-80, -26, 150, 52, COL[acc], 'rx="8"') + '<g transform="translate(110 0)" stroke="#2b9a55" stroke-width="9" fill="none" stroke-linecap="round"><path d="M-18 2 L-6 16 L20 -16"/></g></g>';
     s += '<g transform="translate(560 270)">' + rect(-80, -26, 150, 52, COL[oth], 'rx="8" opacity=".7"') + '<g transform="translate(110 0)" stroke="#d8392c" stroke-width="9" fill="none" stroke-linecap="round"><path d="M-16 -16 L16 16 M16 -16 L-16 16"/></g></g>';
-    s += '<g transform="translate(560 380)" stroke="#1f4f8a" stroke-width="5" fill="none"><ellipse rx="52" ry="30"/><circle r="14" fill="#1f4f8a"/></g>';
-    s += '<g transform="translate(470 480)">' + [0, 1, 2].map(function (k) { return '<circle cx="' + (k * 90 + 40) + '" cy="0" r="28" fill="none" stroke="#1f4f8a" stroke-width="5"/>' + '<text x="' + (k * 90 + 40) + '" y="13" font-size="34" font-weight="900" text-anchor="middle" fill="#1f4f8a" ' + F + '>' + (k + 1) + '</text>' + (k < 2 ? arrow(k * 90 + 72, 0, k * 90 + 100, 0, '#1f4f8a', 5) : ''); }).join('') + '</g>';
+    if (isFix(c)) {   // 보통 고침: 「눈」 대신 책등(띠+둥근 번호) 그림, 번호 원은 읽을 책 수(4)만큼
+      s += '<g transform="translate(560 380)"><rect x="-26" y="-48" width="52" height="96" rx="7" fill="#6a2a2a"/><rect x="-26" y="-22" width="52" height="24" fill="' + COL[acc] + '"/><circle cx="0" cy="20" r="15" fill="#f3e9d8"/>' + txt(0, 30, 'n', 26, '#2a1f14', 'text-anchor="middle" font-weight="900"') + '</g>';
+      s += '<g transform="translate(410 520)">' + [0, 1, 2, 3].map(function (k) { return '<circle data-ref="wbnum" cx="' + (k * 82 + 30) + '" cy="0" r="27" fill="none" stroke="#1f4f8a" stroke-width="5"/>' + '<text x="' + (k * 82 + 30) + '" y="13" font-size="34" font-weight="900" text-anchor="middle" fill="#1f4f8a" ' + F + '>' + (k + 1) + '</text>' + (k < 3 ? arrow(k * 82 + 62, 0, k * 82 + 78, 0, '#1f4f8a', 4) : ''); }).join('') + '</g>';
+    } else {
+      s += '<g transform="translate(560 380)" stroke="#1f4f8a" stroke-width="5" fill="none"><ellipse rx="52" ry="30"/><circle r="14" fill="#1f4f8a"/></g>';
+      s += '<g transform="translate(470 480)">' + [0, 1, 2].map(function (k) { return '<circle cx="' + (k * 90 + 40) + '" cy="0" r="28" fill="none" stroke="#1f4f8a" stroke-width="5"/>' + '<text x="' + (k * 90 + 40) + '" y="13" font-size="34" font-weight="900" text-anchor="middle" fill="#1f4f8a" ' + F + '>' + (k + 1) + '</text>' + (k < 2 ? arrow(k * 90 + 72, 0, k * 90 + 100, 0, '#1f4f8a', 5) : ''); }).join('') + '</g>';
+    }
+    if (ez(c)) s += flaskIcon(80, 106, 1.15) + bookIcon(480, 104, 1.15);   // 쉬움: 왼쪽은 병 쪽지, 오른쪽은 책 규칙
     return s + zfin();
   };
   A.zDrawer = function (c) {
@@ -302,7 +361,7 @@
     return s + zfin();
   };
   A.zOld = function (c) {
-    var s = zbg() + calendar(c.P.cal.old, 90, 90, 620, 560, { paper: '#e6dcb8', head: '#8a7a5a' }) + '<g transform="rotate(-8 400 70)">' + rect(260, 30, 280, 60, '#fff6b8', 'rx="6" stroke="#b9a85a" stroke-width="3"') + txt(400, 72, '지난 학기', 36, '#5a4a1a', 'text-anchor="middle" font-weight="800"') + '</g>';
+    var s = zbg() + calendar(c.P.cal.old, 90, 90, 620, 560, copt(c, { paper: '#e6dcb8', head: '#8a7a5a', old: true })) + '<g transform="rotate(-8 400 70)">' + rect(260, 30, 280, 60, '#fff6b8', 'rx="6" stroke="#b9a85a" stroke-width="3"') + txt(400, 72, '지난 학기', 36, '#5a4a1a', 'text-anchor="middle" font-weight="800"') + '</g>';
     return s + zfin();
   };
   A.zSafe = function (c) {
@@ -322,17 +381,27 @@
       if (i === P.arr.decoy) s += '<g transform="rotate(-8 ' + cx + ' 160)">' + rect(cx - 44, 140, 88, 40, '#ffb347', 'rx="6"') + txt(cx, 169, '기준', 26, '#4a2a00', 'text-anchor="middle" font-weight="800"') + '</g>';
       if (c.st.flags.star_seen && i === P.arr.star) s += '<g transform="translate(' + cx + ' 110)"><circle r="40" fill="#9b6cf0" opacity=".28"/>' + symbol(3, 0, 0, 30, '#d7c2ff') + '</g>';
     }
+    if (ez(c)) for (var n = 0; n < 4; n++) s += numChip(130 + n * 180, 301, n + 1, 14);   // 쉬움: 선반 병 자리 1~4
     s += rect(20, 330, 760, 100, '#fff6b8', 'rx="8" opacity=".0"') + paperNote(30, 322, 400, 104, 0, '#fff6b8') + consPic(P.arr.cons[2], 44, 334, 270).replace(/<text[^>]*>[^<]*<\/text>/g, '');
     s += '<g transform="translate(560 376)">' + rect(-110, -44, 220, 88, '#e9eef0', 'rx="8"') + '<g transform="translate(-60 0)" fill="none" stroke="#e0483c" stroke-width="6"><rect x="-22" y="-14" width="44" height="28" rx="4" fill="#ffb347" stroke="none"/><path d="M-26 -22 L26 22 M26 -22 L-26 22"/></g>' + '<g transform="translate(40 0)"><rect x="-34" y="-8" width="68" height="16" rx="8" fill="#9b6cf0"/><path d="M-20 -20 q20 -26 40 0" stroke="#9b6cf0" stroke-width="5" fill="none"/></g><g transform="translate(96 -6)" stroke="#2b9a55" stroke-width="7" fill="none"><path d="M-14 4 L-4 14 L16 -12"/></g></g>';
     return s + zfin();
   };
+  /* 상자 도해의 예시 별 자리: 판마다 달라지고 실제 별 병과는 늘 다르다(실제 자리를 알려 주지 않음) */
+  A.boxExStar = function (P) { return (P.arr.star + 1 + (P.seed % 3)) % 4; };
   A.zBox = function (c) {
     var s = zbg() + rect(50, 40, 700, 440, '#4a545b', 'rx="18" stroke="#2b3338" stroke-width="8"') + rect(50, 40, 700, 70, '#5c6870', 'rx="18"') + rect(330, 70, 140, 26, '#2b3338', 'rx="10"') + rect(360, 456, 80, 18, '#a7b2bb', 'rx="6"');
     s += rect(86, 124, 628, 300, '#f2efe3', 'rx="12"');
     // 왼쪽: 병 자리 칸 그림(병 네 개 중 ★ 표시 병의 자리 번호) → 숫자 칸
     for (var i = 0; i < 4; i++) { var fx = 128 + i * 64; s += '<path d="M' + (fx - 8) + ' 168 L' + (fx - 8) + ' 190 L' + (fx - 26) + ' 226 L' + (fx + 26) + ' 226 L' + (fx + 8) + ' 190 L' + (fx + 8) + ' 168 Z" fill="#cfe9ec" stroke="#6aa0aa" stroke-width="3"/><path d="M' + (fx - 20) + ' 208 L' + (fx - 26) + ' 224 L' + (fx + 26) + ' 224 L' + (fx + 20) + ' 208 Z" fill="#4fae5a"/>'; }
-    s += symbol(3, 128 + 64, 146, 17, '#9b6cf0') + '<path d="M192 160 V166" stroke="#9b6cf0" stroke-width="3"/>';
-    s += arrow(224, 240, 224, 296, '#3a362e', 6) + rect(186, 304, 76, 76, '#fffdf2', 'rx="10" stroke="#3a362e" stroke-width="5"');
+    if (isFix(c)) {   // 보통 고침: 병마다 자리 번호 1~4, 별은 「이 병 자리」를 보이는 점선 예시(자리는 판마다 달라지며 실제 별 병은 절대 아님)
+      var ex = A.boxExStar(c.P), ex_x = 128 + ex * 64;
+      for (var q = 0; q < 4; q++) s += txt(128 + q * 64, 254, q + 1, 26, '#3a362e', 'text-anchor="middle" font-weight="800"');
+      s += '<g data-ref="boxstar" stroke-dasharray="5 4">' + symbol(3, ex_x, 146, 17, '#9b6cf0') + '</g><path d="M' + (ex_x - 22) + ' 160 H' + (ex_x + 22) + ' V232 H' + (ex_x - 22) + ' Z" fill="none" stroke="#9b6cf0" stroke-width="3" stroke-dasharray="5 4" rx="8"/>';
+      s += arrow(224, 264, 224, 298, '#3a362e', 6) + rect(186, 304, 76, 76, '#fffdf2', 'rx="10" stroke="#3a362e" stroke-width="5"');
+    } else {
+      s += symbol(3, 128 + 64, 146, 17, '#9b6cf0') + '<path d="M192 160 V166" stroke="#9b6cf0" stroke-width="3"/>';
+      s += arrow(224, 240, 224, 296, '#3a362e', 6) + rect(186, 304, 76, 76, '#fffdf2', 'rx="10" stroke="#3a362e" stroke-width="5"');
+    }
     // 오른쪽: 균주 번호표 그림 → 숫자 칸
     s += '<g transform="translate(560 190)"><rect x="-44" y="-50" width="88" height="110" rx="8" fill="#f4efdc" stroke="#b8b09c" stroke-width="3"/>' + [0, 1, 2, 3].map(function (k) { return '<circle cx="-22" cy="' + (-26 + k * 24) + '" r="7" fill="#6aa86a"/><rect x="-8" y="' + (-31 + k * 24) + '" width="34" height="10" rx="3" fill="#3a362e"/>'; }).join('') + '</g>';
     s += arrow(560, 262, 560, 296, '#3a362e', 6) + rect(522, 304, 76, 76, '#fffdf2', 'rx="10" stroke="#3a362e" stroke-width="5"');
@@ -358,6 +427,17 @@
     s += '<g transform="translate(150 476)">' + [0, 1, 2, 3, 4, 5, 6, 7, 8].map(function (q) { var corner = ESC.parts.CORNERS.indexOf(q) >= 0; return rect((q % 3) * 20, Math.floor(q / 3) * 20, 18, 18, corner ? '#d4a52c' : '#b9c3c6', 'rx="2"'); }).join('') + '</g>';
     s += '<g transform="translate(260 505)"><circle r="15" fill="#6fd06a" stroke="#2c8a3a" stroke-width="3"/><path d="M28 4 L40 16 L62 -12" stroke="#2b9a55" stroke-width="8" fill="none" stroke-linecap="round"/></g>';
     s += '<g transform="translate(430 505)"><circle r="15" fill="#2a4fb8" stroke="#16307a" stroke-width="3"/><path d="M28 -14 L56 14 M56 -14 L28 14" stroke="#d8392c" stroke-width="8" stroke-linecap="round"/></g>';
+    if (isFix(c)) {   // 보통 고침: 준비 순서 3칸 — ① 커버글라스→계수판 ② 시료→트립판 ③ 시료가 채워진 계수판을 스테이지에. 한 일은 ✓
+      var inv = c.st.inv, d1 = inv.indexOf('chamber_ready') >= 0 || !!f.chamber_on, d2 = inv.indexOf('tube_stained') >= 0 || !!f.sample_on, d3 = !!f.sample_on;
+      var icon = function (id, x, y, k) { return A.ico(id, c).replace('<svg viewBox="0 0 100 100">', '<svg x="' + x + '" y="' + y + '" width="' + k + '" height="' + k + '" viewBox="0 0 100 100">'); };
+      var cell = function (x, done) { return '<g data-ref="prep">' + rect(x, 560, 180, 92, done ? '#d9efdc' : '#f4efdc', 'rx="12" stroke="' + (done ? '#2b9a55' : '#b8b09c') + '" stroke-width="3"/>') + (done ? '<circle cx="' + (x + 160) + '" cy="580" r="14" fill="#2b9a55"/><path d="M' + (x + 153) + ' 580 l5 6 l9 -11" stroke="#fff" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' : '') + '</g>'; };
+      s += cell(110, d1) + icon('coverslip', 116, 574, 62) + arrow(180, 606, 198, 606, '#3a362e', 4) + icon('chamber', 196, 574, 62);
+      s += cell(310, d2) + icon('tube', 316, 574, 62) + arrow(380, 606, 398, 606, '#3a362e', 4) + icon('trypan', 396, 574, 62);
+      s += cell(510, d3);
+      var gx = 540, gy = 578; s += rect(gx, gy, 66, 66, '#dff0f1', 'rx="4" stroke="#7d8e92" stroke-width="2.5"') + '<g stroke="#a9c1c4" stroke-width="1.5"><path d="M' + (gx + 22) + ' ' + gy + ' V' + (gy + 66) + ' M' + (gx + 44) + ' ' + gy + ' V' + (gy + 66) + ' M' + gx + ' ' + (gy + 22) + ' H' + (gx + 66) + ' M' + gx + ' ' + (gy + 44) + ' H' + (gx + 66) + '"/></g>';
+      [[10, 10], [33, 14], [54, 8], [12, 34], [38, 36], [56, 30], [8, 56], [30, 54], [52, 54]].forEach(function (o, k) { s += '<circle cx="' + (gx + o[0]) + '" cy="' + (gy + o[1]) + '" r="5" fill="' + (k % 4 === 3 ? '#2a4fb8' : '#6fd06a') + '" stroke="' + (k % 4 === 3 ? '#16307a' : '#2c8a3a') + '" stroke-width="1.5"/>'; });
+      s += arrow(616, 612, 640, 612, '#3a362e', 4);
+    }
     return s + zfin();
   };
   A.zFridge = function (c) {
@@ -394,11 +474,18 @@
     return s + zfin();
   };
   A.zTextbook = function (c) {
-    var s = zbg() + paperNote(60, 40, 680, 720, 0, '#f4efdc') + txt(400, 110, '빛의 색과 에너지', 38, '#3a362e', 'text-anchor="middle" font-weight="800"');
+    var s = zbg() + paperNote(60, 40, 680, 720, 0, '#f4efdc') + txt(400, 110, '빛의 색과 에너지', 38, '#3a362e', 'text-anchor="middle" font-weight="800"'), F2 = isFix(c);
     var cols = [['#7a3fd0', '보라', 410], ['#2b6fe0', '파랑', 470], ['#3fbf5a', '초록', 530], ['#f0a020', '주황', 600], ['#e03a2a', '빨강', 650]];
-    cols.forEach(function (k, i) { var x = 110 + i * 116; s += rect(x, 170, 112, 110, k[0], 'rx="6"') + txt(x + 56, 232, k[1], 30, '#fff', 'text-anchor="middle" font-weight="800"') + txt(x + 56, 316, '약 ' + k[2], 26, '#3a362e', 'text-anchor="middle" font-weight="700"'); });
-    s += arrow(120, 360, 680, 360, '#3a362e', 5) + txt(120, 396, '파장 짧음', 24, '#3a362e', 'font-weight="700"') + txt(680, 396, '파장 긺', 24, '#3a362e', 'text-anchor="end" font-weight="700"');
-    s += txt(400, 480, '파장(nm)이 짧을수록 빛의 에너지가 큽니다.', 30, '#2a1f14', 'text-anchor="middle" font-weight="700"') + txt(400, 580, '엽록소는 주로 빨강과 파랑 빛을 흡수하고', 28, '#3a362e', 'text-anchor="middle"') + txt(400, 622, '초록 빛은 반사합니다.', 28, '#3a362e', 'text-anchor="middle"');
+    cols.forEach(function (k, i) {
+      var x = 110 + i * 116, dimV = F2 && i === 0;   // 보통 고침: 이 방에서 안 쓰는 보라 칸은 흐리게
+      s += (dimV ? '<g opacity=".3">' : '') + rect(x, 170, 112, 110, k[0], 'rx="6"') + txt(x + 56, 232, k[1], 30, '#fff', 'text-anchor="middle" font-weight="800"') + txt(x + 56, 316, '약 ' + k[2], 26, '#3a362e', 'text-anchor="middle" font-weight="700"');
+      if (F2) s += bolt(x + 56, 372, [1.5, 1.28, 1.06, 0.84, 0.62][i], '#e8b92c');   // 파장이 짧을수록 번개가 큼 = 최종 패널의 「큰 번개→작은 번개」
+      s += (dimV ? '</g>' : '');
+    });
+    var ay = F2 ? 452 : 360;
+    s += arrow(120, ay, 680, ay, '#3a362e', 5) + txt(120, ay + 36, '파장 짧음', 24, '#3a362e', 'font-weight="700"') + txt(680, ay + 36, '파장 긺', 24, '#3a362e', 'text-anchor="end" font-weight="700"');
+    var oy = F2 ? 540 : 480;
+    s += txt(400, oy, '파장(nm)이 짧을수록 빛의 에너지가 큽니다.', 30, '#2a1f14', 'text-anchor="middle" font-weight="700"') + txt(400, oy + 100, '엽록소는 주로 빨강과 파랑 빛을 흡수하고', 28, '#3a362e', 'text-anchor="middle"') + txt(400, oy + 142, '초록 빛은 반사합니다.', 28, '#3a362e', 'text-anchor="middle"');
     return s + zfin();
   };
 
@@ -434,6 +521,22 @@
       s += has ? '<path d="M' + x + ' 20 H' + (x + 62) + ' L' + (x + 86) + ' 60 L' + (x + 62) + ' 100 H' + x + ' Z" fill="' + COL[k] + '" stroke="#fff" stroke-width="4"/><circle cx="' + (x + 14) + '" cy="60" r="7" fill="#1c1611"/><text x="' + (x + 52) + '" y="76" font-size="52" font-weight="900" text-anchor="middle" fill="#fff" ' + F + '>' + P.tags[k] + '</text>' : '<path d="M' + x + ' 20 H' + (x + 62) + ' L' + (x + 86) + ' 60 L' + (x + 62) + ' 100 H' + x + ' Z" fill="none" stroke="#59646d" stroke-width="3" stroke-dasharray="6 6"/>';
     });
     return '<svg viewBox="0 0 520 120">' + s + '</svg>';
+  };
+
+  /* 잠금 자리 이름표 그림(쉬움 전체 · 서랍은 보통도). span = 차지하는 칸 수. 칸 폭에 맞춰 늘어나는 한 줄 그림 */
+  A.labIcon = function (ic, span) {
+    var W = 60 * (span || 1), g = '', m = ic.match(/^n(\d)$/), PA = '#f3e9d8';
+    if (ic === 'footRing') g = ringIcon(28, 20, 11) + foot(70, 24, 0.7, PA, -12) + foot(96, 15, 0.7, PA, 12);
+    else if (ic === 'footSq') g = sqIcon(28, 20, 10) + foot(70, 24, 0.7, PA, -12) + foot(96, 15, 0.7, PA, 12);
+    else if (m) g = '<circle cx="30" cy="20" r="15" fill="' + PA + '"/>' + txt(30, 28, m[1], 22, '#2a1f14', 'text-anchor="middle" font-weight="900"');
+    else if (ic === 'dotL' || ic === 'dotM' || ic === 'dotS') g = rect(12, 4, 36, 32, '#fff6b8', 'rx="5"') + '<circle cx="30" cy="20" r="' + { dotL: 12, dotM: 8, dotS: 4.5 }[ic] + '" fill="#3a3a3a" opacity="' + { dotL: 1, dotM: 0.7, dotS: 0.45 }[ic] + '"/>';
+    else if (ic === 'flowR') g = arrow(14, 20, 226, 20, PA, 4) + [30, 85, 140, 195].map(function (x) { return '<circle cx="' + x + '" cy="20" r="5" fill="' + PA + '"/>'; }).join('');
+    else if (ic === 'bottleN') g = flaskIcon(30, 24, 0.55) + symbol(3, 30, 8, 7, '#b99aff');
+    else if (ic === 'tableN') g = rect(14, 3, 32, 34, '#f4efdc', 'rx="3"') + [0, 1, 2, 3].map(function (k) { return '<circle cx="23" cy="' + (10 + k * 8) + '" r="2.6" fill="#6aa86a"/><rect x="30" y="' + (8 + k * 8) + '" width="12" height="4" rx="1.5" fill="#3a362e"/>'; }).join('');
+    else if (ic === 'degCF') g = txt(30, 26, '°C→°F', 16, '#ffd54a', 'text-anchor="middle" font-weight="800"');
+    else if (ic === 'greenSum') g = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(function (q) { var cor = [0, 2, 6, 8].indexOf(q) >= 0; return rect(6 + (q % 3) * 9, 7 + Math.floor(q / 3) * 9, 8, 8, cor ? '#d4a52c' : '#59646d', 'rx="1.5"'); }).join('') + '<circle cx="46" cy="20" r="8" fill="#6fd06a" stroke="#2c8a3a" stroke-width="2.5"/>';
+    else if (ic === 'boltFlow') g = bolt(34, 20, 0.62, '#ffd54a') + arrow(70, 20, 168, 20, PA, 4) + bolt(206, 20, 0.3, '#a58f36');
+    return '<svg viewBox="0 0 ' + W + ' 40" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' + g + '</svg>';
   };
   A.strainIcon = strainIcon; A.symbol = symbol; A.dirArrow = dirArrow; A.arrow = arrow; A.COL = COL; A.SYMKO = SYMKO; A.defs = defs;
 

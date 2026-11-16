@@ -9,10 +9,13 @@
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 
-  function Core(scn, seed, saved) {
+  /* opts.diff = 'easy' | 'normal' (새 판에만 쓴다. 저장된 판은 저장에 든 st.diff 를 따르고, 없으면 보통) */
+  function Core(scn, seed, saved, opts) {
     this.scn = scn; this.seed = seed >>> 0; this.P = scn.build(this.seed); this.ev = [];
-    this.hintWait = scn.hintWait.slice();
+    this.view = {};          // 화면 임시 상태(저장하지 않음): 달력 칠하기 등
+    this.hintWaitOverride = null;
     this.st = (saved && saved.st) ? clone(saved.st) : { solved: {}, flags: { fl_mode: 'light' }, inv: [], notebook: [], stars: {}, lockVal: {}, tries: {}, cons: {}, cd: {}, hint: {}, hintsUsed: 0, elapsed: 0, wall: scn.start };
+    if (!(saved && saved.st) && opts && (opts.diff === 'easy' || opts.diff === 'normal')) this.st.diff = opts.diff;
   }
   var C = Core.prototype;
   C.push = function (e) { this.ev.push(e); };
@@ -30,7 +33,11 @@
     return neg ? !r : r;
   };
   C.scene = function (id) { return this.scn.scenes[id]; };
-  C.visibleHs = function (sceneId) { var self = this; return (this.scn.scenes[sceneId].hs || []).filter(function (h) { return self.cond(h.when); }); };
+  /* 난이도: 기능 스위치(scn.features.easy)가 꺼져 있으면 저장에 쉬움이 있어도 전부 보통. 난이도는 보이는 것·힌트 대기만 바꾸고 정답·잠금은 읽지 않는다 */
+  C.diff = function () { var f = this.scn.features || {}; return (f.easy && this.st.diff === 'easy') ? 'easy' : 'normal'; };
+  C.setDiff = function (d) { if (d === 'easy' || d === 'normal') this.st.diff = d; };
+  C.allHs = function (sceneId) { var sc = this.scn.scenes[sceneId]; return (sc.hs || []).concat(sc.dyn ? (sc.dyn(this) || []) : []); };
+  C.visibleHs = function (sceneId) { var self = this; return this.allHs(sceneId).filter(function (h) { return self.cond(h.when); }); };
 
   C.give = function (id) { if (this.st.inv.indexOf(id) < 0) { this.st.inv.push(id); this.st.flags['got_' + id] = true; this.push({ t: 'give', item: id }); } };
   C.take = function (id) { var i = this.st.inv.indexOf(id); if (i >= 0) { this.st.inv.splice(i, 1); this.push({ t: 'take', item: id }); } };
@@ -59,8 +66,9 @@
 
   /* 누르기. sel = 선택해 둔 소지품(있으면 「쓰기」) */
   C.tap = function (sceneId, hsId, sel) {
-    var sc = this.scn.scenes[sceneId], hs = (sc.hs || []).filter(function (h) { return h.id === hsId; })[0];
+    var sc = this.scn.scenes[sceneId], hs = this.allHs(sceneId).filter(function (h) { return h.id === hsId; })[0];
     if (!hs || !this.cond(hs.when)) return false;
+    if (hs.kind === 'paint' && !sel) { this.view.calPaint = this.view.calPaint === hs.mark ? null : hs.mark; return true; }   // 쉬움 달력: ○ 또는 □ 를 누르면 압정 다음 칸부터 그 칸까지 칠함(저장하지 않음)
     if (sel) {
       var self = this, list = (hs.accepts || []).filter(function (a) { return a.item === sel; }), acc = list.filter(function (a) { return (!a.mode || self.st.flags.fl_mode === a.mode) && self.cond(a.when); })[0];
       if (acc) { this.eff(acc.do); this.push({ t: 'used', item: sel, hs: hsId }); return true; }
@@ -131,8 +139,9 @@
     });
     return best;
   };
-  /* 단계 열림 시각: 1단계 즉시, 2단계 첫 접촉 90초 뒤, 3단계 첫 접촉 330초(90+240) 뒤 */
-  C.hintAt = function (lvl) { var w = this.hintWait, s = 0; for (var i = 0; i < lvl; i++) s += w[i]; return s; };
+  /* 단계 열림 시각(첫 접촉부터 누적): 보통 — 1단계 즉시, 2단계 90초, 3단계 330초(90+240) / 쉬움 — 1단계 즉시, 2단계 10초, 3단계 40초(10+30) */
+  C.waits = function () { return this.hintWaitOverride || ((this.scn.hintWaitByDiff || {})[this.diff()]) || this.scn.hintWait; };
+  C.hintAt = function (lvl) { var w = this.waits(), s = 0; for (var i = 0; i < lvl; i++) s += w[i]; return s; };
   C.hintState = function (ctx) {
     var pz = this.currentPuzzle(ctx); if (!pz) return null;
     var st = this.st; st.first = st.first || {}; if (st.first[pz.id] === undefined) st.first[pz.id] = st.elapsed;

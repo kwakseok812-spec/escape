@@ -6,7 +6,7 @@
   'use strict';
   var ESC = window.ESC, $ = function (id) { return document.getElementById(id); };
   var scn = ESC.scenarios.lab, art = ESC.art, P = ESC.parts;
-  var KEY = 'escape.lab.v1', BEST = 'escape.best.v1';
+  var KEY = 'escape.lab.v1', BEST = 'escape.best.v1', DKEY = 'escape.diff.v1';
   function lsGet(k) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
@@ -33,16 +33,41 @@
 
   /* ---------------- 시작 · 저장 ---------------- */
   function newSeed() { return ((Date.now() ^ (Math.random() * 4294967296)) >>> 0) || 1; }
-  function startGame(seed) {
-    var saved = lsGet(KEY);
-    if (saved && saved.v === 1 && saved.st && !saved.st.flags.ended && (!seed || saved.seed === seed)) { core = new ESC.Core(scn, saved.seed, saved); }
-    else core = new ESC.Core(scn, seed || newSeed());
-    if (urlFast) core.hintWait = [0, 2, 4];
+  /* 난이도: 새 판을 시작할 때 카드 두 장으로 고르고(마지막 선택이 미리 강조, 처음엔 쉬움), 「다시 하기」·「처음부터 다시」는 카드 없이 마지막 선택으로 바로 시작한다. 이어하기는 저장된 난이도(없으면 보통) 그대로 */
+  function diffOn() { return !!(scn.features && scn.features.easy); }
+  function lastDiff() { var v = lsGet(DKEY); return v && (v.d === 'easy' || v.d === 'normal') ? v.d : 'easy'; }
+  function setLastDiff(d) { lsSet(DKEY, { d: d }); }
+  var diffParam = (location.search.match(/[?&]diff=(easy|normal)/) || [])[1], pendingSeed = 0;
+  function syncDiff() { document.documentElement.classList.toggle('easy', !!core && core.diff() === 'easy'); renderSwitch(); }
+  function renderSwitch() {
+    var d = core ? core.diff() : 'normal', h = diffOn() ? '<span class="dswl">난이도</span><button type="button" data-diff="easy" class="' + (d === 'easy' ? 'on' : '') + '">쉬움</button><button type="button" data-diff="normal" class="' + (d === 'normal' ? 'on' : '') + '">보통</button>' : '';
+    ['hintSw', 'nbSw'].forEach(function (id) { var e = $(id); if (e) e.innerHTML = h; });
+  }
+  function showDiffCards(seed) {
+    pendingSeed = seed || 0; core = null; ended = false; sel = null; zoomId = null; document.documentElement.classList.remove('easy');
+    ['endBox', 'zoom', 'notebook', 'hintBox'].forEach(function (id) { $(id).hidden = true; });
+    var pre = lastDiff(); document.querySelectorAll('#diffBox .dcard').forEach(function (b) { b.classList.toggle('pre', b.dataset.pick === pre); });
+    $('diffBox').hidden = false;
+  }
+  function startGame(seed, diff) {
+    var saved = lsGet(KEY), cont = !!(saved && saved.v === 1 && saved.st && !saved.st.flags.ended && (!seed || saved.seed === seed));
+    if (!cont && diffOn() && !diff) { showDiffCards(seed); return; }
+    $('diffBox').hidden = true;
+    if (cont) { core = new ESC.Core(scn, saved.seed, saved); }
+    else core = new ESC.Core(scn, seed || newSeed(), null, { diff: diffOn() ? diff : 'normal' });
+    if (urlFast) core.hintWaitOverride = [0, 2, 4];
     ended = false; sel = null; zoomId = null;
     $('endBox').hidden = true; $('zoom').hidden = true; $('notebook').hidden = true; $('hintBox').hidden = true;
     core.enter(core.st.wall); core.drain();
-    renderAll(); save();
+    syncDiff(); renderAll(); save();
   }
+  document.addEventListener('click', function (e) {
+    var pk = e.target.closest ? e.target.closest('[data-pick]') : null;
+    if (pk) { var d = pk.dataset.pick; setLastDiff(d); startGame(pendingSeed, d); return; }
+    var b = e.target.closest ? e.target.closest('[data-diff]') : null; if (!b || !core) return;
+    var nd = b.dataset.diff; if (core.diff() === nd) return;
+    core.setDiff(nd); setLastDiff(nd); syncDiff(); renderAll(); if (zoomId && zoomId.indexOf('__') !== 0) renderZoom(); if (!$('notebook').hidden) renderNotebook(); refreshWait(); save();
+  });
   function save() { if (core && !ended) lsSet(KEY, core.serialize()); }
 
   /* ---------------- 장면 그리기 ---------------- */
@@ -61,8 +86,15 @@
     $('wallDots').innerHTML = dots;
     applyHl();
   }
+  function isNewHs(hs) {
+    if (!core || hs.quiet || core.diff() !== 'easy') return false;
+    if (hs.kind === 'pick' || hs.kind === 'paint') return true;
+    if (hs.kind === 'zoom') { var t = scn.scenes[hs.to], cd = t && t.card; return !!(cd && core.st.notebook.indexOf(cd.id) < 0); }
+    if (hs.doneFlag) return !core.st.flags[hs.doneFlag];
+    return false;
+  }
   function hsHtml(sceneId, hs) {
-    var r = hs.r, q = hs.quiet ? ' quiet' : '';
+    var r = hs.r, q = (hs.quiet ? ' quiet' : '') + (isNewHs(hs) ? ' new' : '');
     return '<button class="hs' + q + '" data-hs="' + sceneId + '.' + hs.id + '" aria-label="' + (hs.id) + '" style="left:' + r[0] * 100 + '%;top:' + r[1] * 100 + '%;width:' + r[2] * 100 + '%;height:' + r[3] * 100 + '%"></button>';
   }
   function invIds() { var ids = [], tags = false; core.st.inv.forEach(function (id) { if (id.indexOf('tag_') === 0) { if (!tags) { ids.push('tag_ring'); tags = true; } } else ids.push(id); }); return ids; }
@@ -191,7 +223,7 @@
     if (sc.lock && !core.st.solved[sc.lock.id] && core.cond(sc.lock.show)) { var r = sc.lock.r; lk.style.cssText = 'display:block;left:' + r[0] * 100 + '%;top:' + r[1] * 100 + '%;width:' + r[2] * 100 + '%;height:' + r[3] * 100 + '%'; buildLock(sc.lock.id, lk); }
     applyHl();
   }
-  function closeZoom() { zoomId = null; $('zoom').hidden = true; $('zlock').innerHTML = ''; stopCd(); }
+  function closeZoom() { zoomId = null; $('zoom').hidden = true; $('zlock').innerHTML = ''; stopCd(); if (core) renderWall(); }
   $('zclose').addEventListener('click', closeZoom);
   $('zoom').addEventListener('click', function (e) { if (e.target === $('zoom')) closeZoom(); });
 
@@ -201,6 +233,16 @@
   function handleHtml(l) {
     var ar = { pull: ICON.down, lever: ICON.down, slide: ICON.right, pullleft: ICON.left, rotate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 11-2.6-5.9M20 4v5h-5"/></svg>' }[l.handle];
     return '<div class="handle h-' + l.handle + '" data-handle="' + l.handle + '"><div class="track"><div class="knob">' + ar + '</div></div><div class="hint">' + ({ pull: '아래로 당기기', lever: '레버 내리기', slide: '오른쪽으로 밀기', pullleft: '왼쪽으로 당기기', rotate: '돌리기' }[l.handle]) + '</div></div>';
+  }
+  /* 잠금 자리 이름표: 칸 위에 붙는 작은 그림(서랍은 보통도, 나머지는 쉬움) */
+  function labelGroups(id) { var l = scn.locks[id], g = l.labels ? l.labels(core.diff()) : null; return g && g.length ? g : null; }
+  function labelsHtml(g, cls, n) { return '<div class="wlabs ' + cls + '" style="--n:' + n + '">' + g.map(function (x) { return '<div class="lab" data-ic="' + x.ic + '" style="grid-column:span ' + (x.span || 1) + '">' + art.labIcon(x.ic, x.span || 1) + '</div>'; }).join('') + '</div>'; }
+  function addLabels(id, ctl, l) {
+    var g = labelGroups(id); if (!g) return;
+    var row = { digits: '.wheels', direction: '.dshow', symbols: '.syrow', order: '.oslots' }[l.type], el = row ? ctl.querySelector(row) : null;
+    if (el) { el.insertAdjacentHTML('afterbegin', labelsHtml(g, 'c-' + l.type, l.n)); return; }
+    if (l.type === 'dial') ctl.insertAdjacentHTML('afterbegin', '<div class="lab solo" data-ic="' + g[0].ic + '">' + art.labIcon(g[0].ic, 1) + '</div>');
+    else if (l.type === 'count') ctl.parentNode.insertAdjacentHTML('afterbegin', '<div class="lab solo tab" data-ic="' + g[0].ic + '">' + art.labIcon(g[0].ic, 1) + '</div>');   // 칸이 좁아 판 위쪽에 붙는 이름표로
   }
   function buildLock(id, host) {
     var l = scn.locks[id], val = core.getLock(id), h = '<div class="lk t-' + l.type + '" data-lock="' + id + '"><div class="ctl"></div>' + handleHtml(l) + '</div>';
@@ -212,6 +254,7 @@
     else if (l.type === 'order') buildOrder(ctl, l, val, set);
     else if (l.type === 'dial') buildDial(ctl, l, val, set);
     else if (l.type === 'count') buildCount(ctl, l, val, set);
+    if (l.type !== 'order') addLabels(id, ctl, l);   // 순서 잠금은 그릴 때마다 위젯을 새로 만들어 그 안에서 붙인다
     bindHandle(hd, l, function () { core.tryOpen(id); flush(); });   // flush 가 위젯을 새로 그리며 대기 표시(cooldownUi)를 새 손잡이에 건다
     cooldownUi(id, hd);
   }
@@ -257,8 +300,8 @@
   }
   function buildDirection(ctl, l, val, set) {
     var lockId = ctl.parentNode.dataset.lock;
-    function draw() { var cur = core.getLock(lockId), h = ''; for (var i = 0; i < l.n; i++) h += '<div class="dslot">' + (cur[i] ? '<svg viewBox="-20 -20 40 40">' + art.dirArrow(cur[i], 0, 0, 13, '#f3e9d8') + '</svg>' : '') + '</div>'; ctl.querySelector('.dshow').innerHTML = h; }
-    ctl.innerHTML = '<div class="dshow"></div><div class="dpad">' + [['U', 'u'], ['L', 'l'], ['R', 'r'], ['D', 'd']].map(function (d) { return '<button class="d d-' + d[1] + '" data-d="' + d[0] + '"><svg viewBox="-20 -20 40 40">' + art.dirArrow(d[0], 0, 0, 12, '#f3e9d8') + '</svg></button>'; }).join('') + '<button class="dclr" aria-label="지우기">' + ICON.close + '</button></div>';
+    function draw() { var cur = core.getLock(lockId), h = ''; for (var i = 0; i < l.n; i++) h += '<div class="dslot">' + (cur[i] ? '<svg viewBox="-20 -20 40 40">' + art.dirArrow(cur[i], 0, 0, 13, '#f3e9d8') + '</svg>' : '') + '</div>'; ctl.querySelector('.dshow .dsl').innerHTML = h; }
+    ctl.innerHTML = '<div class="dshow"><div class="dsl"></div></div><div class="dpad">' + [['U', 'u'], ['L', 'l'], ['R', 'r'], ['D', 'd']].map(function (d) { return '<button class="d d-' + d[1] + '" data-d="' + d[0] + '"><svg viewBox="-20 -20 40 40">' + art.dirArrow(d[0], 0, 0, 12, '#f3e9d8') + '</svg></button>'; }).join('') + '<button class="dclr" aria-label="지우기">' + ICON.close + '</button></div>';
     draw();
     ctl.querySelectorAll('.d').forEach(function (b) { b.addEventListener('click', function () { var cur = core.getLock(lockId).slice(); cur.push(b.dataset.d); while (cur.length > l.n) cur.shift(); set(cur); draw(); }); });
     ctl.querySelector('.dclr').addEventListener('click', function () { set([]); draw(); });
@@ -276,7 +319,7 @@
     function draw() {
       var cur = core.getLock(lockId), h = '<div class="oslots">';
       for (var i = 0; i < l.n; i++) h += '<div class="oslot' + (cur[i] ? ' full' : '') + '" data-i="' + i + '">' + (cur[i] ? card(cur[i]) : '<b>' + (i + 1) + '</b>') + '</div>';
-      h += '</div><div class="opool">'; pool.forEach(function (id) { h += cur.indexOf(id) >= 0 ? '<div class="ocard used"></div>' : card(id, selCard === id ? 'sel' : ''); }); ctl.innerHTML = h + '</div>';
+      h += '</div><div class="opool">'; pool.forEach(function (id) { h += cur.indexOf(id) >= 0 ? '<div class="ocard used"></div>' : card(id, selCard === id ? 'sel' : ''); }); ctl.innerHTML = h + '</div>'; addLabels(lockId, ctl, l);
       ctl.querySelectorAll('.oslot').forEach(function (s) { s.addEventListener('click', function () { var i = +s.dataset.i, c = core.getLock(lockId).slice(); if (selCard) { c[i] = selCard; selCard = null; } else c[i] = null; set(c); draw(); }); });
       ctl.querySelectorAll('.opool .ocard:not(.used)').forEach(function (c) {
         var x0, y0, ghost = null, moved = false;
@@ -339,7 +382,7 @@
   var rst = 0;
   $('nbRestart').addEventListener('click', function () {
     if (!rst) { $('nbRestart').textContent = '한 번 더 누르면 처음부터 합니다'; rst = setTimeout(function () { rst = 0; $('nbRestart').textContent = '처음부터 다시'; }, 3500); return; }
-    clearTimeout(rst); rst = 0; $('nbRestart').textContent = '처음부터 다시'; lsDel(KEY); $('notebook').hidden = true; startGame(newSeed());
+    clearTimeout(rst); rst = 0; $('nbRestart').textContent = '처음부터 다시'; lsDel(KEY); $('notebook').hidden = true; startGame(newSeed(), lastDiff());
   });
 
   /* ---------------- 힌트 ---------------- */
@@ -356,6 +399,11 @@
       hl = { t: r.hl || [], until: Date.now() + 7000 }; applyHl(); setTimeout(applyHl, 7100);
     }
     $('hintBody').innerHTML = h; b.hidden = false; save();
+  }
+  function refreshWait() {
+    if (!core || $('hintBox').hidden) return;
+    var w = $('hintBody').querySelector('.wt'), hs = core.hintState({ scene: hintScene }); if (!w || !hs) return;
+    if (hs.remain > 0) { w.textContent = '다음 힌트까지 ' + fmtRemain(hs.remain); w.setAttribute('data-remain', Math.ceil(hs.remain)); } else { w.textContent = '다음 힌트를 바로 볼 수 있습니다.'; w.removeAttribute('data-remain'); }
   }
   function fmtRemain(s) { s = Math.ceil(s); return s >= 60 ? Math.floor(s / 60) + '분 ' + (s % 60) + '초' : s + '초'; }
   $('bHint').addEventListener('click', hintUi);
@@ -383,7 +431,7 @@
     $('endBody').innerHTML = '<h2>비상 문이 열렸습니다</h2><p class="sub"><b>다음 편에 이어집니다</b></p><dl><div><dt>걸린 시간</dt><dd>' + fmtT(st.elapsed) + '</dd></div><div><dt>힌트</dt><dd>' + st.hintsUsed + '번</dd></div><div><dt>여는 시도</dt><dd>' + tries + '번</dd></div><div><dt>최고 기록</dt><dd>' + fmtT(best.t) + (isBest ? ' (새 기록)' : '') + '</dd></div></dl>';
     $('endBox').hidden = false; $('zoom').hidden = true; zoomId = null;
   }
-  $('endAgain').addEventListener('click', function () { startGame(newSeed()); });
+  $('endAgain').addEventListener('click', function () { startGame(newSeed(), lastDiff()); });
 
   /* ---------------- 시간 · 뒤로 가기 ---------------- */
   setInterval(function () {
@@ -395,6 +443,7 @@
   document.addEventListener('visibilitychange', function () { if (document.hidden) save(); lastTick = 0; });
   window.addEventListener('pagehide', save);
   window.__gameBack = function () {
+    if (!$('diffBox').hidden) return false;
     if (!$('hintBox').hidden) { $('hintBox').hidden = true; return true; }
     if (!$('notebook').hidden) { $('notebook').hidden = true; return true; }
     if (zoomId) { closeZoom(); return true; }
@@ -439,7 +488,7 @@
   }
   preloadWalls(function () {
     var boot = $('boot'); if (boot) boot.remove();
-    startGame(seedParam ? +seedParam : 0);
-    window.__escape = { get core() { return core; }, get zoomId() { return zoomId; }, startGame: startGame, openZoom: openZoom, closeZoom: closeZoom, flush: flush, get ended() { return ended; }, renderAll: renderAll };
+    startGame(seedParam ? +seedParam : 0, diffParam);
+    window.__escape = { get core() { return core; }, lastDiff: lastDiff, get pendingSeed() { return pendingSeed; }, get zoomId() { return zoomId; }, startGame: startGame, openZoom: openZoom, closeZoom: closeZoom, flush: flush, get ended() { return ended; }, renderAll: renderAll };
   });
 })();
